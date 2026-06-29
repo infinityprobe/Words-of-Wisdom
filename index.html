@@ -1,0 +1,1355 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#ffffff">
+<link rel="manifest" href="manifest.json">
+<meta name="apple-mobile-web-app-title" content="Words">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<title>Word Generator</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Nastaliq+Urdu:wght@400;700&display=swap">
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+:root{
+  --bg:#fafafa;--bg2:#f0f0f0;--bg3:#ffffff;
+  --text:#111;--text2:#555;--text3:#999;
+  --border:#e0e0e0;--accent:#6366f1;--accent2:#818cf8;
+  --rap:#dc2626;--song:#2563eb;--ghazal:#059669;
+  --card:#fff;--shadow:0 1px 4px rgba(0,0,0,.08);
+  --r:14px;
+}
+@media(prefers-color-scheme:dark){
+  :root{
+    --bg:#111;--bg2:#1a1a1a;--bg3:#222;
+    --text:#f0f0f0;--text2:#aaa;--text3:#666;
+    --border:#333;--card:#1e1e1e;--shadow:0 1px 4px rgba(0,0,0,.4);
+  }
+}
+body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;min-height:100dvh;display:flex;flex-direction:column;max-width:480px;margin:0 auto}
+button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit}
+input,select,textarea{font-family:inherit;color:inherit;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:8px 12px;font-size:14px;width:100%;outline:none}
+input:focus,select:focus,textarea:focus{border-color:var(--accent)}
+textarea{resize:vertical;min-height:80px}
+
+/* TOP BAR */
+#top-bar{display:flex;align-items:center;gap:8px;padding:12px 16px 8px;border-bottom:1px solid var(--border);background:var(--bg);position:sticky;top:0;z-index:10}
+.lang-toggle{display:flex;border:1px solid var(--border);border-radius:20px;overflow:hidden}
+.lang-toggle button{padding:4px 14px;font-size:13px;font-weight:500;border-radius:20px;transition:all .15s}
+.lang-toggle button.active{background:var(--accent);color:#fff}
+.mode-toggle{display:flex;gap:4px;margin-left:auto}
+.mode-btn{padding:4px 12px;font-size:12px;border-radius:20px;border:1px solid var(--border);color:var(--text2);transition:all .15s}
+.mode-btn.active{background:var(--text);color:var(--bg);border-color:var(--text)}
+#session-btn{padding:4px 10px;font-size:12px;border-radius:20px;border:1px solid var(--border);color:var(--text2)}
+#session-btn.active{background:#059669;color:#fff;border-color:#059669}
+#session-countdown{font-size:13px;font-weight:500;color:var(--accent);min-width:36px;text-align:right}
+
+/* PANELS */
+#panels{flex:1;overflow-y:auto}
+.panel{display:none;padding:16px}
+.panel.active{display:block}
+
+/* HOME PANEL */
+#word-card{
+  background:var(--card);border:1px solid var(--border);border-radius:var(--r);
+  padding:20px 16px 16px;margin-bottom:12px;position:relative;
+}
+.word-timer-ring{position:absolute;top:10px;right:10px;width:36px;height:36px}
+.word-timer-ring svg{transform:rotate(-90deg)}
+.word-timer-ring circle{fill:none;stroke:var(--border);stroke-width:3}
+.word-timer-ring .progress{stroke:var(--accent);stroke-width:3;stroke-linecap:round;transition:stroke-dashoffset .9s linear}
+#word-main{font-size:44px;font-weight:700;letter-spacing:-1px;line-height:1.1;margin-bottom:4px}
+#word-trans{font-size:16px;color:var(--text2);margin-bottom:2px}
+#word-translit{font-size:13px;color:var(--text3);margin-bottom:10px}
+.word-type-badge{display:inline-block;font-size:11px;text-transform:uppercase;letter-spacing:.8px;padding:2px 8px;border-radius:20px;background:var(--bg2);color:var(--text2);margin-bottom:8px}
+#word-hint{font-size:14px;color:var(--text2);line-height:1.5;margin-bottom:12px}
+
+/* LYRIC STYLE TOGGLE */
+.lyric-style-row{display:flex;gap:6px;margin-bottom:8px}
+.lyric-style-btn{flex:1;padding:5px;font-size:12px;border-radius:8px;border:1px solid var(--border);color:var(--text2);font-weight:500;transition:all .15s}
+.lyric-style-btn.active[data-style="rap"]{background:var(--rap);color:#fff;border-color:var(--rap)}
+.lyric-style-btn.active[data-style="song"]{background:var(--song);color:#fff;border-color:var(--song)}
+.lyric-style-btn.active[data-style="ghazal"]{background:var(--ghazal);color:#fff;border-color:var(--ghazal)}
+
+/* LYRIC BOX */
+#lyric-box{
+  background:var(--bg2);border-radius:10px;padding:12px 14px;cursor:pointer;
+  border:1px solid transparent;transition:border-color .15s;position:relative;
+}
+#lyric-box:active{border-color:var(--accent)}
+#lyric-text{font-size:14px;line-height:1.7;color:var(--text);font-style:italic}
+#lyric-box .expand-hint{position:absolute;bottom:8px;right:10px;font-size:11px;color:var(--text3)}
+#ghazal-ur{font-family:'Noto Nastaliq Urdu',serif;font-size:18px;line-height:2;direction:rtl;text-align:right}
+#ghazal-en{font-size:13px;color:var(--text2);font-style:italic;margin-top:6px}
+
+/* SEQUENCE DOTS */
+.seq-row{display:flex;align-items:center;gap:6px;margin:12px 0 4px}
+.seq-dot{width:8px;height:8px;border-radius:50%;background:var(--border);transition:all .2s}
+.seq-dot.filled{background:var(--accent)}
+.seq-dot.solo{background:var(--text3);width:6px;height:6px}
+.seq-dot.solo.filled{background:var(--text2)}
+#review-badge{font-size:11px;background:var(--accent2);color:#fff;padding:2px 8px;border-radius:20px;margin-left:auto}
+
+/* ACTION BUTTONS */
+.action-row{display:flex;gap:8px;margin-top:12px}
+.act-btn{flex:1;display:flex;align-items:center;justify-content:center;gap:6px;padding:10px;border-radius:10px;border:1px solid var(--border);font-size:14px;color:var(--text2);font-weight:500;transition:all .15s;background:var(--card)}
+.act-btn:active{transform:scale(.97);background:var(--bg2)}
+.act-btn.starred i{color:#f59e0b}
+.act-btn.hidden-w i{color:var(--rap)}
+#next-btn{background:var(--text);color:var(--bg);border-color:var(--text);flex:2}
+
+/* BOTTOM NAV */
+#bottom-nav{display:flex;border-top:1px solid var(--border);background:var(--bg);padding-bottom:env(safe-area-inset-bottom,0)}
+.nav-btn{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;padding:10px 4px 8px;font-size:10px;color:var(--text3);transition:color .15s}
+.nav-btn.active{color:var(--accent)}
+.nav-btn i{font-size:20px}
+
+/* TOPICS PANEL */
+.topic-select-row{display:flex;gap:8px;margin-bottom:12px}
+.topic-select-row select{flex:1}
+.topic-words-grid{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.topic-chip{padding:6px 14px;border-radius:20px;background:var(--bg2);border:1px solid var(--border);font-size:14px;cursor:pointer;transition:all .15s}
+.topic-chip:active{background:var(--accent);color:#fff;border-color:var(--accent)}
+.add-topic-row{display:flex;gap:8px;margin-top:16px}
+.add-topic-row input{flex:1}
+.add-topic-row button{padding:8px 14px;border-radius:8px;background:var(--accent);color:#fff;font-weight:500;font-size:14px;flex-shrink:0}
+
+/* JOURNAL PANEL */
+.journal-entry{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:8px}
+.j-word{font-size:20px;font-weight:700}
+.j-meta{font-size:12px;color:var(--text3);margin-top:2px}
+.j-hint{font-size:13px;color:var(--text2);margin-top:4px}
+.j-lyric{font-size:13px;font-style:italic;color:var(--text2);margin-top:6px;border-left:2px solid var(--border);padding-left:8px}
+.j-actions{display:flex;gap:8px;margin-top:8px}
+.j-btn{font-size:12px;padding:4px 10px;border-radius:6px;border:1px solid var(--border);color:var(--text2)}
+.scores-section{margin-top:20px;padding-top:16px;border-top:1px solid var(--border)}
+.score-item{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);font-size:14px}
+
+/* PREFS PANEL */
+.prefs-section{margin-bottom:20px}
+.prefs-label{font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.6px;color:var(--text3);margin-bottom:8px}
+.hidden-word-item{display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border)}
+.hw-word{font-weight:600;flex:1}
+.restore-btn{font-size:12px;padding:4px 10px;border-radius:6px;background:var(--accent);color:#fff}
+.session-dur-row{display:flex;gap:8px;flex-wrap:wrap}
+.dur-btn{padding:6px 14px;border-radius:20px;border:1px solid var(--border);font-size:13px;color:var(--text2)}
+.dur-btn.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+.word-timer-row{display:flex;gap:8px;margin-top:8px}
+.wt-btn{padding:6px 12px;border-radius:20px;border:1px solid var(--border);font-size:13px;color:var(--text2)}
+.wt-btn.active{background:var(--text);color:var(--bg);border-color:var(--text)}
+.corpus-actions{display:flex;gap:8px;margin-top:8px}
+.corpus-btn{padding:6px 14px;border-radius:8px;border:1px solid var(--border);font-size:13px;color:var(--text2)}
+.corpus-btn.primary{background:var(--accent);color:#fff;border-color:var(--accent)}
+#corpus-stats{font-size:13px;color:var(--text3);margin-top:6px}
+
+/* LYRIC STUDIO */
+#lyric-studio{
+  position:fixed;bottom:0;left:50%;transform:translateX(-50%) translateY(100%);
+  width:100%;max-width:480px;background:var(--card);border-radius:20px 20px 0 0;
+  border-top:1px solid var(--border);padding:0 0 env(safe-area-inset-bottom,20px);
+  transition:transform .3s cubic-bezier(.4,0,.2,1);z-index:100;max-height:80dvh;overflow-y:auto;
+}
+#lyric-studio.open{transform:translateX(-50%) translateY(0)}
+.studio-handle{width:36px;height:4px;background:var(--border);border-radius:2px;margin:12px auto 0}
+.studio-header{display:flex;align-items:center;justify-content:space-between;padding:12px 16px 8px}
+.studio-title{font-weight:600;font-size:16px}
+.studio-close{font-size:24px;color:var(--text3);padding:4px}
+.studio-style-row{display:flex;gap:6px;padding:0 16px 12px;border-bottom:1px solid var(--border)}
+.studio-style-btn{flex:1;padding:6px;font-size:12px;border-radius:8px;border:1px solid var(--border);color:var(--text2);font-weight:500}
+.studio-style-btn.active[data-s="rap"]{background:var(--rap);color:#fff;border-color:var(--rap)}
+.studio-style-btn.active[data-s="song"]{background:var(--song);color:#fff;border-color:var(--song)}
+.studio-style-btn.active[data-s="ghazal"]{background:var(--ghazal);color:#fff;border-color:var(--ghazal)}
+#studio-lines{padding:16px}
+.studio-line{font-size:15px;font-style:italic;line-height:1.8;color:var(--text);opacity:0;transition:opacity .3s}
+.studio-line.visible{opacity:1}
+.studio-line.revealed{animation:fadeUp .4s ease forwards}
+@keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.studio-ur-line{font-family:'Noto Nastaliq Urdu',serif;font-size:20px;line-height:2.2;direction:rtl;text-align:right}
+.studio-en-line{font-size:13px;color:var(--text2);font-style:italic}
+.studio-reveal-btn{margin:0 16px 8px;padding:8px;border-radius:8px;border:1px solid var(--border);font-size:14px;color:var(--text2);width:calc(100% - 32px)}
+.studio-save-btn{margin:8px 16px;padding:10px;border-radius:10px;background:var(--accent);color:#fff;font-size:14px;font-weight:500;width:calc(100% - 32px)}
+
+/* MEMORY TEST */
+#memory-test{
+  position:fixed;inset:0;background:var(--bg);z-index:200;
+  display:none;flex-direction:column;padding:20px 16px;max-width:480px;margin:0 auto;
+}
+#memory-test.active{display:flex}
+.mt-progress{font-size:13px;color:var(--text3);margin-bottom:4px}
+.mt-progress-bar{height:3px;background:var(--border);border-radius:2px;margin-bottom:24px;overflow:hidden}
+.mt-progress-fill{height:100%;background:var(--accent);border-radius:2px;transition:width .3s}
+.mt-hint{font-size:22px;font-weight:600;line-height:1.4;margin-bottom:12px}
+.mt-sub{font-size:14px;color:var(--text3);margin-bottom:28px}
+.mt-options{display:grid;grid-template-columns:1fr 1fr;gap:10px;flex:1;align-content:start}
+.mt-opt{padding:16px;border-radius:12px;border:1.5px solid var(--border);font-size:16px;font-weight:500;text-align:left;transition:all .15s}
+.mt-opt:active{transform:scale(.97)}
+.mt-opt.correct{background:#059669;color:#fff;border-color:#059669}
+.mt-opt.wrong{background:var(--rap);color:#fff;border-color:var(--rap)}
+
+/* SCORE SCREEN */
+#score-screen{
+  position:fixed;inset:0;background:var(--bg);z-index:200;
+  display:none;flex-direction:column;align-items:center;justify-content:center;
+  padding:24px;text-align:center;max-width:480px;margin:0 auto;
+}
+#score-screen.active{display:flex}
+.score-emoji{font-size:64px;margin-bottom:12px}
+.score-num{font-size:56px;font-weight:700;color:var(--accent)}
+.score-label{font-size:16px;color:var(--text2);margin-top:4px;margin-bottom:24px}
+.score-actions{display:flex;flex-direction:column;gap:10px;width:100%}
+.score-btn{padding:12px;border-radius:12px;font-size:16px;font-weight:500;border:1.5px solid var(--border)}
+.score-btn.primary{background:var(--accent);color:#fff;border-color:var(--accent)}
+
+/* STUDIO OVERLAY BG */
+#studio-bg{position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:99;display:none}
+#studio-bg.open{display:block}
+
+/* WORD ANIMATION */
+#word-main{transition:opacity .2s,transform .2s}
+#word-main.fade{opacity:0;transform:translateY(-6px)}
+
+/* URDU */
+.ur-word{font-family:'Noto Nastaliq Urdu',serif;direction:rtl}
+
+/* SECTION HEADING */
+.section-head{font-size:13px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.6px;margin-bottom:10px;margin-top:4px}
+.empty-state{text-align:center;color:var(--text3);font-size:14px;padding:32px 16px}
+</style>
+</head>
+<body>
+
+<div id="top-bar">
+  <div class="lang-toggle">
+    <button class="active" onclick="setLang('en')">EN</button>
+    <button onclick="setLang('ur')">UR</button>
+  </div>
+  <div class="mode-toggle">
+    <button class="mode-btn active" onclick="setMode('normal')">Normal</button>
+    <button class="mode-btn" onclick="setMode('hard')">Hard</button>
+  </div>
+  <button id="session-btn" onclick="toggleSession()">Start</button>
+  <span id="session-countdown"></span>
+</div>
+
+<div id="panels">
+
+  <!-- HOME -->
+  <div class="panel active" id="panel-home">
+    <div id="word-card">
+      <div class="word-timer-ring" id="word-timer-ring" style="display:none">
+        <svg viewBox="0 0 36 36" width="36" height="36">
+          <circle cx="18" cy="18" r="15.5"/>
+          <circle class="progress" id="timer-circle" cx="18" cy="18" r="15.5" stroke-dasharray="97.4 97.4" stroke-dashoffset="0"/>
+        </svg>
+      </div>
+      <div id="word-main"></div>
+      <div id="word-trans"></div>
+      <div id="word-translit"></div>
+      <span class="word-type-badge" id="word-type"></span>
+      <div id="word-hint"></div>
+
+      <div class="lyric-style-row">
+        <button class="lyric-style-btn active" data-style="rap" onclick="setLyricStyle('rap')">Rap</button>
+        <button class="lyric-style-btn" data-style="song" onclick="setLyricStyle('song')">Song</button>
+        <button class="lyric-style-btn" data-style="ghazal" onclick="setLyricStyle('ghazal')">Ghazal</button>
+      </div>
+
+      <div id="lyric-box" onclick="openLyricStudio()">
+        <div id="lyric-text"></div>
+        <div id="ghazal-ur" style="display:none"></div>
+        <div id="ghazal-en" style="display:none"></div>
+        <span class="expand-hint">tap to expand</span>
+      </div>
+
+      <div class="seq-row">
+        <div class="seq-dot" id="dot0"></div>
+        <div class="seq-dot" id="dot1"></div>
+        <div class="seq-dot" id="dot2"></div>
+        <div class="seq-dot solo" id="dot3"></div>
+        <span id="review-badge" style="display:none">Review</span>
+      </div>
+    </div>
+
+    <div class="action-row">
+      <button class="act-btn" id="star-btn" onclick="toggleStar()"><i class="ti ti-star"></i></button>
+      <button class="act-btn" id="hide-btn" onclick="hideCurrentWord()"><i class="ti ti-eye-off"></i></button>
+      <button class="act-btn" id="next-btn" onclick="nextWord()"><i class="ti ti-refresh"></i> New word</button>
+    </div>
+  </div>
+
+  <!-- TOPICS -->
+  <div class="panel" id="panel-topics">
+    <div class="section-head">Topic</div>
+    <div class="topic-select-row">
+      <select id="topic-select" onchange="generateTopicWords()"></select>
+    </div>
+    <div id="topic-words-grid" class="topic-words-grid">
+      <span class="empty-state">Select a topic to generate words</span>
+    </div>
+    <div class="add-topic-row">
+      <input id="new-topic-input" placeholder="Add custom topic…" onkeydown="if(event.key==='Enter')addCustomTopic()">
+      <button onclick="addCustomTopic()">Add</button>
+    </div>
+    <div id="custom-topics-list" style="margin-top:12px"></div>
+  </div>
+
+  <!-- JOURNAL -->
+  <div class="panel" id="panel-journal">
+    <div class="section-head">Starred words</div>
+    <div id="journal-list"></div>
+    <button onclick="exportJournal()" style="width:100%;padding:10px;border-radius:10px;border:1px solid var(--border);font-size:14px;color:var(--text2);margin-top:8px"><i class="ti ti-copy"></i> Export list</button>
+    <div class="scores-section">
+      <div class="section-head">Session scores</div>
+      <div id="scores-list"></div>
+    </div>
+  </div>
+
+  <!-- PREFS -->
+  <div class="panel" id="panel-prefs">
+    <div class="prefs-section">
+      <div class="prefs-label">Session duration</div>
+      <div class="session-dur-row" id="dur-row">
+        <button class="dur-btn" data-d="5">5 min</button>
+        <button class="dur-btn active" data-d="10">10 min</button>
+        <button class="dur-btn" data-d="15">15 min</button>
+        <button class="dur-btn" data-d="20">20 min</button>
+      </div>
+    </div>
+    <div class="prefs-section">
+      <div class="prefs-label">Per-word timer</div>
+      <div class="word-timer-row" id="wt-row">
+        <button class="wt-btn" data-wt="0">Off</button>
+        <button class="wt-btn active" data-wt="15">15s</button>
+        <button class="wt-btn" data-wt="30">30s</button>
+        <button class="wt-btn" data-wt="60">60s</button>
+      </div>
+    </div>
+    <div class="prefs-section">
+      <div class="prefs-label">Personal text corpus</div>
+      <textarea id="corpus-input" placeholder="Paste your own writing, notes, phrases… The app will extract words and use your phrases in lyrics."></textarea>
+      <div class="corpus-actions">
+        <button class="corpus-btn primary" onclick="processCorpus()">Extract words</button>
+        <button class="corpus-btn" onclick="clearCorpus()">Clear</button>
+      </div>
+      <div id="corpus-stats"></div>
+    </div>
+    <div class="prefs-section">
+      <div class="prefs-label">Hidden words</div>
+      <div id="hidden-words-list"><div class="empty-state" style="padding:12px 0">No hidden words</div></div>
+    </div>
+  </div>
+
+</div>
+
+<nav id="bottom-nav">
+  <button class="nav-btn active" onclick="switchTab('home')"><i class="ti ti-home"></i>Home</button>
+  <button class="nav-btn" onclick="switchTab('topics')"><i class="ti ti-tag"></i>Topics</button>
+  <button class="nav-btn" onclick="switchTab('journal')"><i class="ti ti-star"></i>Journal</button>
+  <button class="nav-btn" onclick="switchTab('prefs')"><i class="ti ti-settings"></i>Prefs</button>
+</nav>
+
+<!-- LYRIC STUDIO -->
+<div id="studio-bg" onclick="closeLyricStudio()"></div>
+<div id="lyric-studio">
+  <div class="studio-handle"></div>
+  <div class="studio-header">
+    <span class="studio-title" id="studio-word"></span>
+    <button class="studio-close" onclick="closeLyricStudio()"><i class="ti ti-x"></i></button>
+  </div>
+  <div class="studio-style-row">
+    <button class="studio-style-btn active" data-s="rap" onclick="setStudioStyle('rap')">Rap</button>
+    <button class="studio-style-btn" data-s="song" onclick="setStudioStyle('song')">Song</button>
+    <button class="studio-style-btn" data-s="ghazal" onclick="setStudioStyle('ghazal')">Ghazal</button>
+  </div>
+  <div id="studio-lines"></div>
+  <button class="studio-reveal-btn" id="studio-reveal-btn" onclick="revealNextLine()">Show next line</button>
+  <button class="studio-save-btn" onclick="saveVerse()"><i class="ti ti-star"></i> Save full verse</button>
+</div>
+
+<!-- MEMORY TEST -->
+<div id="memory-test">
+  <div class="mt-progress" id="mt-progress">Question 1 of 8</div>
+  <div class="mt-progress-bar"><div class="mt-progress-fill" id="mt-fill" style="width:0%"></div></div>
+  <div class="mt-hint" id="mt-hint"></div>
+  <div class="mt-sub" id="mt-sub">Which word matches this hint?</div>
+  <div class="mt-options" id="mt-options"></div>
+</div>
+
+<!-- SCORE SCREEN -->
+<div id="score-screen">
+  <div class="score-emoji" id="score-emoji">🎯</div>
+  <div class="score-num" id="score-num">0/0</div>
+  <div class="score-label" id="score-label">Words remembered</div>
+  <div class="score-actions">
+    <button class="score-btn" onclick="reviewMissed()">Review missed words</button>
+    <button class="score-btn primary" onclick="endMemoryTest()">Start new session</button>
+  </div>
+</div>
+
+<script>
+// ===================== WORD DATA =====================
+const WORDS = {
+en: [
+// r=al syl=3 (normal)
+{w:"liminal",u:"دہلیزی",ut:"dahleezi",t:"adj",s:3,r:"al",hd:false,
+ h:"the threshold between two states — neither here nor there",
+ rap:["I'm liminal, I live between the dark and the dawn,","Every wall I've faced becomes the door I'm stepping on.","The crossing has no compass, no map and no guide,","But the in-between is where I found my truest stride."],
+ sng:["In this liminal light, I hold my breath and wait,","Between the self I was and who I'm meant to be.","There is no lock here, and there is no gate,","Just open sky — the door of possibility."],
+ gu:["دہلیز پہ کھڑا ہوں نہ ادھر کا نہ ادھر کا","وقت ٹھہرا ہے یہاں جیسے دریا بے خبر کا"],
+ ge:["I stand at the threshold, belonging to neither side,","Time has stilled itself here, like a river without its guide."]},
+
+{w:"visceral",u:"غریزی",ut:"ghareezi",t:"adj",s:3,r:"al",hd:false,
+ h:"felt in the gut before the mind can catch up",
+ rap:["It's visceral — you feel it in the chest, not the brain,","Like thunder rolling in before the wall of rain.","No logic built this feeling, it just knows what it knows,","The body tells the truth that only the body shows."],
+ sng:["This visceral ache is where the real begins,","Beneath the thought, the feeling always wins.","You cannot think your way to where you have to go,","The gut was always wiser, moving with the flow."],
+ gu:["جو دل میں اترتا ہے وہ غریزہ ہے یا عشق","سمجھ سے پہلے جاگتا ہے یہ احساس کا عشق"],
+ ge:["What settles in the heart — is it instinct or love?","It wakes before the mind, rising from below above."]},
+
+{w:"lyrical",u:"شاعرانہ",ut:"sha'iraana",t:"adj",s:3,r:"al",hd:false,
+ h:"flowing with the music of language",
+ rap:["Keep it lyrical — every word should find its beat,","From the alley to the rooftop, every rhyme's complete.","Language is a river and the lyrical's the flow,","Let it carry what the silent self could never show."],
+ sng:["You speak in lyrical tones that move the trees,","Your voice a current carried on the breeze.","The lyrical is not the word but what it holds —","The warmth inside the syllable before it folds."],
+ gu:["شاعرانہ لہجے میں جب بات کرتے ہو","ہر لفظ ایک راگ بن کر بکھر جاتا ہو"],
+ ge:["When you speak in that lyrical tone of yours,","Every word becomes a raga as it pours."]},
+
+{w:"spherical",u:"کروی",ut:"kuravi",t:"adj",s:3,r:"al",hd:false,
+ h:"perfectly round, complete — no edge or end",
+ rap:["My world's spherical — it loops back on itself,","Every lesson that I lost, it comes back off the shelf.","What goes around comes around, that's more than just a phrase,","The cycle brings you home again through the maze."],
+ sng:["The spherical perfection of the earth below,","Holds every broken heart and every hopeful glow.","No corner hides the truth on something round and whole,","A perfect shape to carry an imperfect soul."],
+ gu:["کروی ہے یہ دنیا، اس کا کوئی کنارہ نہیں","جو پیچھے چھوڑ آئے ہو وہ آگے ملے گا کہیں"],
+ ge:["The world is spherical — it has no edge to find,","What you left behind will meet you up ahead in time."]},
+
+// r=ence syl=3 (normal)
+{w:"resonance",u:"گونج",ut:"goonj",t:"noun",s:3,r:"ence",hd:false,
+ h:"the vibration that outlasts the sound that made it",
+ rap:["Resonance is what I'm building every line that I write,","An echo in the silence, still burning like a light.","Long after I am gone, the word will hold its place,","Resonance is legacy — it lives beyond the face."],
+ sng:["Your resonance remains long after you are gone,","A note that fills the hall and carries on and on.","We are not the sound — we are the space it fills,","Resonance, the gift that distance never kills."],
+ gu:["تری گونج ابھی تک ہے ہواؤں میں باقی","آواز گئی لیکن اثر آیا ہے ساقی"],
+ ge:["Your echo still rides in the wind, still alive,","The voice is gone but the impression will survive."]},
+
+{w:"confluence",u:"سنگم",ut:"sangam",t:"noun",s:3,r:"ence",hd:false,
+ h:"the meeting point where two currents become one",
+ rap:["At the confluence of pain and strength I found my stride,","Two rivers ran through me and I became the tide.","The place where things collide is not the end of roads —","It's where the best of everything finally overflows."],
+ sng:["At the confluence of light and dark, we learn to see,","The grey between the absolutes is where we're free.","Two worlds can meet without one losing what it is,","A confluence of everything — yours, mine, and his."],
+ gu:["سنگم پہ دو دریا ملے تو کہاں گئے","دونوں کے پانی اک ہوئے، دونوں بہاں گئے"],
+ ge:["Two rivers met at the sangam and merged as one,","Both waters gone, yet the river has begun."]},
+
+{w:"turbulence",u:"ہنگامہ",ut:"hangaama",t:"noun",s:3,r:"ence",hd:false,
+ h:"rough, disruptive motion that tests what holds together",
+ rap:["In the turbulence I found what I was built to be,","Pressure formed the diamond that you see standing free.","Don't pray for a calm sea — pray to be the kind of ship,","That rides the turbulence without letting the anchor slip."],
+ sng:["Through turbulence the birds still know the way,","The storm that shakes them teaches them to stay.","The roughest air is not a sign that you should land,","Sometimes turbulence is just the way the sky's been planned."],
+ gu:["ہنگامے میں گھر جلا تو پتہ چلا","پتھر کی طرح دل ہے تو پتہ چلا"],
+ ge:["When chaos burned the house, I came to know,","The heart is stone — I learned this in the blow."]},
+
+{w:"eloquence",u:"فصاحت",ut:"fasaahat",t:"noun",s:3,r:"ence",hd:false,
+ h:"the power to say the right thing with beauty and precision",
+ rap:["My eloquence ain't fancy words — it's truth with wings,","The kind of language that the quiet heart finally sings.","Say less, mean more — let every syllable do work,","The sharpest blade is the one that doesn't need to lurk."],
+ sng:["Eloquence is not the words but what they hold —","The silence between the lines, the warmth that's told.","The most eloquent thing you said was nothing at all,","The look across the room before the curtain's fall."],
+ gu:["فصاحت یہ نہیں کہ بہت کچھ کہا جائے","کبھی کبھی خاموشی سے بات سنائی جائے"],
+ ge:["Eloquence is not in saying everything you know,","Sometimes what silence carries is the finest flow."]},
+
+// r=ation syl=4 (normal)
+{w:"oscillation",u:"تذبذب",ut:"tazabzub",t:"noun",s:4,r:"ation",hd:false,
+ h:"the eternal swing between two poles — doubt and knowing",
+ rap:["Oscillation — swinging doubt to knowing every day,","The pendulum don't stop, that's how I find my way.","Back and forth between the fear and what I trust,","The oscillation keeps me moving — or I'd rust."],
+ sng:["In the oscillation of the heart, the yes and no,","We find the rhythm of the life we need to know.","The swing itself is not the weakness — it's the proof,","That we are still alive inside the search for truth."],
+ gu:["تذبذب میں رہنا بھی ایک عمل ہے","دل ہلتا ہے تو جانو کہ وہ چل رہا ہے"],
+ ge:["To remain in oscillation is itself a kind of act,","The heart that sways is still alive — that is the fact."]},
+
+{w:"transmutation",u:"کیمیا",ut:"keemia",t:"noun",s:4,r:"ation",hd:false,
+ h:"the deep change of one thing into something entirely other",
+ rap:["Transmutation of the pain — I turned my scars to gold,","Every wound I wore became a story to be told.","The alchemist in me kept working through the night,","Transmutation takes the dark and burns it into light."],
+ sng:["Transmutation, slow as stone becoming sand,","The world remade itself inside the open hand.","You cannot rush the change that happens in the deep,","Transmutation comes to those who dare to keep."],
+ gu:["کیمیا یہ ہے کہ غم کو نور کر دیا","سینے میں پتھر تھا مگر اسے شور کر دیا"],
+ ge:["This is alchemy — that grief was turned to light,","The stone inside the chest became a voice, a sight."]},
+
+{w:"contemplation",u:"غور",ut:"ghur",t:"noun",s:4,r:"ation",hd:false,
+ h:"slow, deliberate thought that goes beneath the surface",
+ rap:["Contemplation is the weapon — sit still with the flame,","Know yourself before you play the world's fastest game.","The answer's in the quiet for those who dare to look,","Not every teacher writes their wisdom in a book."],
+ sng:["In contemplation find the quiet room,","Where questions bloom like flowers in the gloom.","The mind that rushes never finds what matters most,","Contemplation finds the truth the busy always ghost."],
+ gu:["غور کر ذرا اپنے آپ پر انسان","اندر جھانک — وہاں ہے تیرا اصل جہان"],
+ ge:["Take a moment to reflect upon yourself, O man,","Look inside — that is where your true world began."]},
+
+{w:"constellation",u:"ستارہ بندی",ut:"sitara bandi",t:"noun",s:4,r:"ation",hd:false,
+ h:"scattered separate lights that form a story when connected",
+ rap:["We are a constellation — dots of light spread wide,","The distance doesn't matter, we're still on the same side.","Individually small but together we make sense,","A constellation turns the dark into something immense."],
+ sng:["A constellation is a story written high above,","Separate stars that spell a single word called love.","We do not shine alone — it's in the space between,","That constellations show the things we've never seen."],
+ gu:["ستارہ بندی کرتا ہے آسمان بھی یاد میں","بکھرے ہوئے دل ملتے ہیں کسی دستان میں"],
+ ge:["Even the sky arranges stars to tell a tale,","Scattered hearts find each other inside the story's trail."]},
+
+// r=ure syl=2 (normal)
+{w:"fracture",u:"دراڑ",ut:"darar",t:"noun",s:2,r:"ure",hd:false,
+ h:"the break that reveals what lies beneath the surface",
+ rap:["Every fracture in me is a line of earned respect,","The cracks are where the light breaks in — give it effect.","I'm not broken — I'm broken open, there's a difference here,","The fracture is the story of the pressure that I cleared."],
+ sng:["The fracture in the glass reveals the deeper grain,","The break that holds the memory of the strain.","We do not crack in weakness — we crack to let things through,","A fracture is the gateway to what the whole once knew."],
+ gu:["دراڑ پڑی دل میں تو روشنی آئی اندر","ٹوٹنا بھی کبھی کبھی بن جاتا ہے بندر"],
+ ge:["When the fracture came, the light entered in,","Sometimes the breaking is where things begin."]},
+
+{w:"rapture",u:"وجد",ut:"wajd",t:"noun",s:2,r:"ure",hd:false,
+ h:"overwhelming joy that lifts you outside yourself",
+ rap:["In a rapture when the music hits the perfect note,","Every word I need dissolves inside my throat.","The rapture doesn't ask you — it just takes you there,","Breathless, weightless, free — beyond the grip of care."],
+ sng:["Rapture is the feeling at the edge of too much love,","When the heart has filled beyond what words are made of.","I have known the rapture of a single perfect line,","When the poem that I needed also happened to be mine."],
+ gu:["وجد میں آنا عقل کا کام نہیں","یہ اک لمحے کا مقام ہے، عام نہیں"],
+ ge:["To enter rapture is not the work of mind,","It is a moment's station — rare of its kind."]},
+
+{w:"texture",u:"بناوٹ",ut:"banaawat",t:"noun",s:2,r:"ure",hd:false,
+ h:"the depth and feel beneath what looks smooth on the surface",
+ rap:["Add some texture to the truth — smooth lies are cheap,","The rough and raw and real is what I choose to keep.","Life without texture is a wall without a crack —","There's nothing there to hold when you look back."],
+ sng:["The texture of your voice beneath the words you say,","Is what I carry with me long after you've gone away.","The surface tells you nothing — you have to feel the grain,","Texture is the story worn into a surface by the rain."],
+ gu:["بناوٹ ہے ہر شے میں، تہہ پر تہہ ہے","ظاہر سے نہیں ملتا جو باطن میں چھپا ہے"],
+ ge:["There is texture in everything, layer upon layer,","What's hidden in the depth won't come from what's outer."]},
+
+{w:"rupture",u:"پھٹاؤ",ut:"phutao",t:"noun",s:2,r:"ure",hd:false,
+ h:"the sudden breach after long, invisible pressure",
+ rap:["The rupture wasn't sudden — it had been building years,","All the pressure held in silence finally appears.","Don't mistake the quiet for the absence of the load,","A rupture just means something reached the end of road."],
+ sng:["The rupture came in silence, in the middle of the night,","When all the held-in tension finally sought the light.","A rupture is an ending but it is also a release,","Sometimes what breaks apart is what allows you peace."],
+ gu:["پھٹاؤ وہ لمحہ ہے جب سب باہر آتا ہے","اندر کا طوفان آخرکار ظاہر ہو جاتا ہے"],
+ ge:["The rupture is the moment everything pours out,","The inner storm at last makes its presence known, no doubt."]},
+
+// r=ness syl=2 (normal)
+{w:"stillness",u:"سکون",ut:"sukoon",t:"noun",s:2,r:"ness",hd:false,
+ h:"the profound quiet that arrives only after movement stops",
+ rap:["Stillness is the loudest thing I've ever heard,","No music, just the weight of one unspoken word.","The world keeps moving — I just learn to stop,","The stillness isn't empty — it's the fullest thing I've got."],
+ sng:["In the stillness of a room that once held laughter,","I found the version of myself I'd been chasing after.","Stillness does not mean the story's at its end,","It means the deepest parts have started to descend."],
+ gu:["سکون وہ نہیں جو شور سے دور ہو","سکون وہ ہے جو خود سے بھرپور ہو"],
+ ge:["Peace is not the absence of the noise outside,","Peace is being full of yourself — that is the guide."]},
+
+{w:"vastness",u:"وسعت",ut:"wus'at",t:"noun",s:2,r:"ness",hd:false,
+ h:"the scale that makes you feel small in a way that frees you",
+ rap:["The vastness of the road ahead don't frighten me now,","I learned to love the size of what I can't see how.","You don't need to see the whole road — just the next step clear,","The vastness is the gift — it means there's always somewhere here."],
+ sng:["The vastness of the ocean holds no fear for me,","I learned that small can still be infinite and free.","The wide and open space is not a threat to fill,","It is an invitation to be present, to be still."],
+ gu:["وسعت میں کھو جاؤ تو ملتا ہے اپنا آپ","سمندر میں ڈوبنے سے ملتا ہے اصل پاپ"],
+ ge:["Lose yourself in vastness and you find yourself again,","In drowning in the ocean you discover your refrain."]},
+
+{w:"darkness",u:"اندھیرا",ut:"andhera",t:"noun",s:2,r:"ness",hd:false,
+ h:"the absence that teaches you what presence truly is",
+ rap:["Darkness is a teacher — sit with it and learn,","The light you make yourself is one that you must earn.","Don't fear the dark — the dark is how the stars show through,","The deepest dark makes visible the brightest things in view."],
+ sng:["The darkness that I carry is the dark before the dawn,","It held me through the winter until the cold was gone.","The darkness is not absence — it is something waiting there,","A canvas for the light that comes for those who dare."],
+ gu:["اندھیرا ہی نہیں ہے تو روشنی کیسی","رات کے بغیر صبح کی خوشی کیسی"],
+ ge:["Without the darkness there is nothing light can mean,","Without the night the beauty of morning can't be seen."]},
+
+{w:"boldness",u:"جرأت",ut:"jur'at",t:"noun",s:2,r:"ness",hd:false,
+ h:"the courage that moves before it has permission",
+ rap:["Boldness doesn't wait for the green light to appear,","It takes the step it knows is right and then makes things clear.","The world respects the ones who act on what they know,","Boldness is the seed from which the great things grow."],
+ sng:["Boldness is not the absence of the fear,","It is the choice to go when staying seems more clear.","The boldness that I'm building is a quiet kind of brave,","Not the roar of lions but the river cutting through the cave."],
+ gu:["جرأت یہ ہے کہ ڈرتے ہوئے بھی چلتے رہو","رکنا مرنا ہے، ڈر کے ساتھ بھی جلتے رہو"],
+ ge:["Boldness is moving forward even while afraid,","To stop is to die — keep burning through the shade."]},
+
+// r=ous syl=3 (normal)
+{w:"numinous",u:"روحانی",ut:"ruhaani",t:"adj",s:3,r:"ous",hd:false,
+ h:"charged with a mysterious spiritual presence beyond words",
+ rap:["Something numinous in the silence of the night,","Can't describe what I'm feeling but it feels like light.","Beyond religion, beyond the names we give to awe,","The numinous is the feeling that sits before the law."],
+ sng:["Numinous the feeling at the edge of understanding,","Where the known world ends and wonder starts expanding.","I have felt the numinous in the middle of the crowd,","When the universe made contact — quiet, clear and loud."],
+ gu:["روحانی ہے وہ لمحہ جب دل کو سکوں ملے","جب ہر سانس میں لگے کہ ربّ سے جنوں ملے"],
+ ge:["Numinous is that moment when the heart finds its rest,","When every breath feels like a meeting with what is best."]},
+
+{w:"luminous",u:"روشن",ut:"raushan",t:"adj",s:3,r:"ous",hd:false,
+ h:"glowing from within — with light, or with understanding",
+ rap:["Stay luminous through the dark — be the light in the room,","The brightest stars are forged inside the deepest tomb.","Luminous is not the glow you borrow from outside,","It's the fire that you carried that refused to hide."],
+ sng:["Luminous the path you left for those who follow,","A light that fills the widest and the deepest hollow.","You do not need the sun — you have enough inside,","Luminous is what you are when you stop trying to hide."],
+ gu:["روشن وہی ہے جو اندر سے جلتا ہے","باہر کی روشنی تو وقت کے ساتھ ڈھلتا ہے"],
+ ge:["Luminous is he who burns from deep within,","The outer light will fade — the inner light will win."]},
+
+{w:"tenuous",u:"نازک",ut:"naazuk",t:"adj",s:3,r:"ous",hd:false,
+ h:"so thin it might vanish — yet still there",
+ rap:["Our connection's tenuous but real as any bone,","A thread so thin is still a thread — we're never fully alone.","Tenuous is better than the cold and hard and strong,","I'd rather hold a thin thing than a wall that proves me wrong."],
+ sng:["This tenuous thread between what was and what might be,","Is all I have — and still it's holding you to me.","A tenuous belief is not the same as unbelief,","A thin thread taut and shining is a kind of sweet relief."],
+ gu:["نازک سا رشتہ ہے مگر ٹوٹتا نہیں","کچھ باریک دھاگے ہوتے ہیں جو چھوٹتے نہیں"],
+ ge:["A delicate connection, yet it does not break,","Some threads are thin yet hold for everything at stake."]},
+
+{w:"ominous",u:"خطرناک",ut:"khatarnaak",t:"adj",s:3,r:"ous",hd:false,
+ h:"heavy with a sense that something unseen is approaching",
+ rap:["Ominous the cloud that's been gathering all week,","The signs were in the silence, in the things we didn't speak.","Don't ignore the ominous — it's telling you to move,","The warning is a gift to help you find another groove."],
+ sng:["Ominous the quiet that comes before the storm,","The stillness that holds every shape before it takes its form.","To feel the ominous is not a curse but a command,","The future pressing close enough for you to understand."],
+ gu:["خطرناک سا سکوت ہے طوفان سے پہلے","دل کانپتا ہے جب آندھی آتی ہے پہلے"],
+ ge:["An ominous silence before the storm always comes,","The heart trembles when it hears the approaching drums."]},
+
+// r=ity syl=4 (HARD)
+{w:"tenacity",u:"جفاکشی",ut:"jafakashi",t:"noun",s:4,r:"ity",hd:true,
+ h:"the stubborn refusal to stop when everything says stop",
+ rap:["Tenacity — I don't quit till the job is done,","Even when the road goes black, I'm still the one that runs.","Soft in voice and hard in spirit — that's the real way through,","Tenacity is what you do when there's nothing left to do."],
+ sng:["Tenacity is quiet — it never needs to shout,","It just keeps showing up when every fire's going out.","The one who stays when staying costs the most they have to give,","Is showing us what tenacity means — and how to truly live."],
+ gu:["جفاکشی یہ ہے کہ رکنا نہ ہو جاری","تھکاوٹ آئے پھر بھی کوشش ہو جاری"],
+ ge:["Tenacity means never letting the effort cease,","Even when fatigue arrives, the work must not decrease."]},
+
+{w:"audacity",u:"دلیری",ut:"dileeri",t:"noun",s:4,r:"ity",hd:true,
+ h:"the bold nerve to act without waiting for permission",
+ rap:["The audacity to dream when the system says you can't,","Turn the cannot into a can, the won't into I want.","Audacity ain't arrogance — it's confidence refined,","The nerve to chase the life that only you are built to find."],
+ sng:["Audacity is wearing hope like it belongs to you,","The nerve to chase the life that nobody else pursues.","Walk into the room as if you've always had the right,","Audacity is how the brave turn daylight into night."],
+ gu:["دلیری یہ ہے کہ جانتے ہوئے بھی آگے بڑھو","ڈر تو سب کو ہوتا ہے، مگر پھر بھی آگے بڑھو"],
+ ge:["Courage is moving forward knowing what you face,","Fear visits everyone — the brave still hold their pace."]},
+
+{w:"ferocity",u:"شدت",ut:"shiddat",t:"noun",s:4,r:"ity",hd:true,
+ h:"fierce, untamed intensity — the force that does not negotiate",
+ rap:["Ferocity — I bring it every time I take the floor,","Not the loudest in the room but you can feel me to the core.","The ferocity I carry is the focused kind of fire,","Not the blaze that burns itself — the flame that keeps going higher."],
+ sng:["Ferocity is not the rage that cannot find its form,","It is the storm that knows exactly what it came to form.","I hold my ferocity like water in my hands,","A force that only flows when life demands."],
+ gu:["شدت میں آتشِ عشق جلتی ہے","جب پیار کرے تو روح بھی بلتی ہے"],
+ ge:["In ferocity, the fire of love ignites,","When love is felt deeply, the soul itself alights."]},
+
+{w:"vivacity",u:"زندہ دلی",ut:"zinda dili",t:"noun",s:4,r:"ity",hd:true,
+ h:"the sparkling, life-forward energy that fills a room",
+ rap:["Vivacity — you walk in and the whole thing shifts,","The kind of energy that everybody naturally lifts.","It's not about the volume — it's about the light you bring,","Vivacity is every room becoming spring."],
+ sng:["The vivacity you carry is a gift to everyone who stays,","A light that doesn't dim despite the weight of the days.","Vivacity is not performed — it radiates from truth,","The joy inside the elder who has found the eyes of youth."],
+ gu:["زندہ دلی سے کمرہ گلزار ہو جاتا ہے","ایک مسکراہٹ سے موسم بہار ہو جاتا ہے"],
+ ge:["With vivacity the room becomes a garden overnight,","One smile is enough to make the season bright."]},
+
+// r=al syl=4 (HARD)
+{w:"ephemeral",u:"عارضی",ut:"aarzi",t:"adj",s:4,r:"al4",hd:true,
+ h:"here for a breath, then gone — which is why it matters",
+ rap:["It's ephemeral — every high will have its fall,","But I'd rather chase the moment than have nothing at all.","Ephemeral ain't worthless — it's the only thing that's real,","The permanent can rust, but nothing takes away the feel."],
+ sng:["Ephemeral as dew before the morning sun,","We were here, we shone, and then we were done.","But the ephemeral is what made it worth it all,","The quickest light burns brightest in its fall."],
+ gu:["عارضی ہے سب، یہ ہم جانتے ہیں","پھر بھی لمحے کو پکڑ کے چلتے ہیں"],
+ ge:["We know that everything is temporary and brief,","Yet we hold each moment tight against our grief."]},
+
+{w:"rhetorical",u:"خطابی",ut:"khitabi",t:"adj",s:4,r:"al4",hd:true,
+ h:"crafted to persuade — the art of shaping what others feel",
+ rap:["Rhetorical — the question that already has an answer built inside,","The speaker and the spoken know exactly how to guide.","Words are tools of power when you know the craft,","Rhetorical is what divides the front from the aft."],
+ sng:["The rhetorical device is just a mirror for the truth,","A way to show the elder what was always known to youth.","When you ask the question you already know the end,","The rhetorical is how you make a thought become a friend."],
+ gu:["خطابی انداز میں جب کوئی بولتا ہے","دل کے دروازے خود بہ خود کھولتا ہے"],
+ ge:["When someone speaks with rhetorical grace and art,","The doors of the heart open of their own accord."]},
+
+{w:"satirical",u:"طنزیہ",ut:"tanziya",t:"adj",s:4,r:"al4",hd:true,
+ h:"using wit to expose what power tries to hide",
+ rap:["Satirical — I'm laughing at the ones who think they're great,","The best way to dismantle power is to make it look like bait.","A satirical eye sees what the serious miss,","The clown is often closer to the truth than the theorist."],
+ sng:["Satirical the lens that turns the grand into the small,","The jester in the court who sees the writing on the wall.","To laugh at what is powerful is itself a kind of brave,","The satirical voice is rarely found inside a grave."],
+ gu:["طنزیہ لہجے میں سچ بولا جاتا ہے","ہنسی کے پردے میں درد پرویا جاتا ہے"],
+ ge:["In a satirical tone the truth is spoken plain,","Pain is woven gently through the laugh's refrain."]},
+
+{w:"symmetrical",u:"متوازن",ut:"mutawazan",t:"adj",s:4,r:"al4",hd:true,
+ h:"balanced into perfect proportion — too rare to last",
+ rap:["Life ain't symmetrical and that's what makes it real,","The uneven and the crooked — that's the texture that you feel.","Symmetrical is the goal that holds the design in mind,","But the asymmetric moments are the ones worth trying to find."],
+ sng:["Symmetrical the soul I tried to build but couldn't keep,","The cracks and imbalances are where the meanings run deep.","I stopped chasing symmetry and found what I was after,","An asymmetric life still full of light and laughter."],
+ gu:["متوازن زندگی کا خواب تو دیکھتے ہیں","لیکن اصل حسن ٹیڑھے راستوں میں دیکھتے ہیں"],
+ ge:["We dream of symmetrical lives, perfectly aligned,","But the real beauty is in the crooked path we find."]}
+],
+
+ur: [
+// r=gi syl=3
+{w:"زندگی",wt:"zindagi",e:"life",t:"noun",s:3,r:"gi",hd:false,
+ h:"وہ سانسوں کی گنتی جو پیدائش سے موت تک ہوتی ہے",
+ hen:"The span of breaths counted from birth until the end",
+ rap:["Zindagi is fleeting but the choices echo on,","Every moment of this safar shapes the life we've known.","Hold it while you have it — it is only on a loan,","Zindagi reminds you that you never walk alone."],
+ sng:["Zindagi, you came to me like rain upon the stone,","You made the desert bloom in me until I wasn't alone.","I did not choose to live but I will choose the way I do,","Zindagi, the only gift worth giving back to you."],
+ gu:["زندگی کیا ہے چراغ کی لو کا قصہ ہے","اک لمحہ روشنی اور پھر اندھیرا بسا ہے"],
+ ge:["What is life but the story of a candle's light?","One moment it burns bright — then darkness through the night."]},
+
+{w:"روشنی",wt:"roshni",e:"light",t:"noun",s:3,r:"gi",hd:false,
+ h:"وہ چیز جو اندھیرے کو مٹاتی ہے اور راستہ دکھاتی ہے",
+ hen:"The thing that dissolves darkness and reveals the way",
+ rap:["Roshni, you come not from the sun but from inside,","The light we carry is the one that cannot hide.","Bring your roshni into every room you enter first,","A little light is all that's needed to break the worst."],
+ sng:["Roshni, you fell on me like grace upon the ground,","I was searching for you in the silence — you were found.","You are not the lamp — you are what the lamp sets free,","Roshni, the deepest kind was always living in me."],
+ gu:["روشنی مانگتے ہیں سب باہر سے","لیکن جلتی ہے چنگاری اندر سے"],
+ ge:["Everyone seeks the light from somewhere far outside,","But the spark that matters burns from deep inside."]},
+
+{w:"خاموشی",wt:"khamoshi",e:"silence",t:"noun",s:4,r:"gi",hd:false,
+ h:"وہ خلا جو الفاظ سے بھاری اور گہرا ہوتا ہے",
+ hen:"The space that is heavier and deeper than any word",
+ rap:["Khamoshi speaks the loudest when the noise has gone away,","Sometimes not speaking is the most important thing to say.","In the khamoshi between the words the meaning lives,","Silence is the gift the honest conversation gives."],
+ sng:["Khamoshi, you are not the absence of the voice,","You are the pause where every sound becomes a choice.","I have learned to read the khamoshi in your eyes,","The things unsaid between us hold a world of skies."],
+ gu:["خاموشی میں بھی ایک آواز ہوتی ہے","جو کان سے نہیں دل سے سنی جاتی ہے"],
+ ge:["Even in silence there is a voice to hear,","Not with the ears — but the heart holds it clear."]},
+
+{w:"خوشی",wt:"khushi",e:"joy",t:"noun",s:2,r:"gi",hd:false,
+ h:"وہ روشنی جو کسی چراغ کی ضرورت نہیں رکھتی",
+ hen:"The light that needs no lamp to shine",
+ rap:["Khushi isn't found — it has to be created every day,","It's not in what you have but how you choose to play.","The little moments carry the most khushi by far,","A laugh, a cup of chai, and you've crossed every bar."],
+ sng:["Khushi, you are the simple things I almost walked past,","The morning light, the smell of rain that never lasts.","You were never far — I just kept looking the wrong way,","Khushi lives in the ordinary of today."],
+ gu:["خوشی اس بات میں ہے جو تمہارے پاس ہے","دور کی تلاش میں قریب کا احساس ہے"],
+ ge:["Joy lives in what you already hold in hand,","In searching far you miss the near — now understand."]},
+
+// r=at syl=2-3
+{w:"محبت",wt:"mohabbat",e:"love",t:"noun",s:3,r:"at",hd:false,
+ h:"دو دلوں کے درمیان وہ کشش جو کشش ثقل سے زیادہ مضبوط ہو",
+ hen:"The gravity between two hearts — stronger than physics",
+ rap:["Mohabbat hits you like a storm you didn't see,","And when it passes through, you're never going to be free.","It's not the easy feeling — it's the one that costs the most,","Mohabbat is the name we give to what we love the ghost."],
+ sng:["Mohabbat, you arrived without a warning or a sign,","You rearranged the furniture of everything I mine.","I did not plan to love but now the love is all the plan,","Mohabbat, you're the map and I'm the travelling man."],
+ gu:["محبت ایک نام ہے بے خودی کا","جب خود کو بھول جائیں — یہ ہے ابتدا کا"],
+ ge:["Love is a name for the state of losing self,","When you forget yourself — that is where it starts."]},
+
+{w:"راحت",wt:"raahat",e:"ease",t:"noun",s:2,r:"at",hd:false,
+ h:"وہ سکون جو طوفان کے گزر جانے کے بعد آتا ہے",
+ hen:"The ease that arrives only after the storm has passed",
+ rap:["Raahat is what's waiting on the other side of pain,","You don't appreciate the sun until you've known the rain.","The raahat in my bones comes from the work I've done,","You can't feel rest without having first begun to run."],
+ sng:["Raahat is the cup of tea that no one else made right,","The familiar arms, the pillow soft, the end-of-day light.","It is not the absence of the difficulty there,","Raahat is the peace you find inside the chair."],
+ gu:["راحت وہ نہیں جو بے کاری میں ملے","راحت تو محنت کے بعد کی تھکاری میں ملے"],
+ ge:["Ease is not found in idleness and empty rest,","It comes in the tiredness after you've given your best."]},
+
+{w:"عادت",wt:"aadat",e:"habit",t:"noun",s:2,r:"at",hd:false,
+ h:"وہ دوسری فطرت جو بن جاتی ہے تب جب ہم نہیں دیکھ رہے ہوتے",
+ hen:"The second nature we grow into when we're not watching",
+ rap:["Aadat shapes you quietly — it's doing it right now,","You are the sum of what you practice, every single vow.","Your aadat is your character when nobody's there,","The choices made in private build the life you'll wear."],
+ sng:["Aadat, you are the river that carved the canyon slow,","A daily practice, deepening with every flow.","What we do without a thought becomes the self we are,","Aadat is the compass, not the destination star."],
+ gu:["عادت وہ نقش ہے جو وقت نے ڈالا ہے","آہستہ آہستہ دل نے جو خود سنبھالا ہے"],
+ ge:["Habit is the mark that time has pressed on you,","Slowly, quietly, the heart took up what it must do."]},
+
+{w:"قربت",wt:"qurbat",e:"closeness",t:"noun",s:2,r:"at",hd:false,
+ h:"وہ فاصلہ جو ناپا نہیں جا سکتا کیونکہ یہ دل میں ہوتا ہے",
+ hen:"The distance that cannot be measured because it lives in the heart",
+ rap:["Qurbat isn't miles — it's something you can feel,","Even across oceans, some closeness is real.","I have known qurbat with those I've never touched,","And distance from the ones I've held too much."],
+ sng:["Qurbat is not the body near — it's the heart in sync,","The closeness felt in everything before you blink.","To know qurbat is knowing someone sees your core,","Not just the face you show — the you that's more."],
+ gu:["قربت دوری سے ناپی نہیں جاتی","جو دل میں ہے وہ میل میں نہیں آتی"],
+ ge:["Closeness cannot be measured in miles apart,","What lives in the heart has no measure — just heart."]},
+
+// r=ar syl=2
+{w:"سفر",wt:"safar",e:"journey",t:"noun",s:2,r:"ar",hd:false,
+ h:"ہر راستہ ہی منزل ہے — چلنا ہی مقصد ہے",
+ hen:"Every road is the destination — moving is the point",
+ rap:["Safar never ends — the road is where I live,","Take more than you need but always more to give.","The destination is a lie the restless tell themselves,","The safar is the gold that sits on no one's shelves."],
+ sng:["Safar, you took me far from who I thought I was,","And brought me to the self I am — that is your because.","I did not know the destination when I left the door,","But the safar led me to what I'd been living for."],
+ gu:["سفر میں جو ملتا ہے منزل پر نہیں ملتا","راستے کا سبق گھر بیٹھے نہیں ملتا"],
+ ge:["What the journey gives you, the destination cannot,","The lessons of the road are not found in the spot."]},
+
+{w:"نظر",wt:"nazar",e:"gaze/vision",t:"noun",s:2,r:"ar",hd:false,
+ h:"جو ہم دیکھتے ہیں وہ بتاتا ہے کہ ہم کیا ہیں",
+ hen:"What we choose to see reveals what we truly are",
+ rap:["Nazar is everything — you see what you believe,","The eye that's full of faith will never truly grieve.","Change your nazar and the whole world shifts its face,","The same street looks like heaven, hell, or grace."],
+ sng:["Your nazar found me in the middle of the crowd,","One look across the room and every voice went loud.","Nazar is not just sight — it's understanding through the eyes,","The gaze that sees the truth behind the human lies."],
+ gu:["نظر میں ہے جہان سارا سمویا ہوا","جو دیکھو اس میں خود کا عکس چھپا ہوا"],
+ ge:["The whole world is gathered inside the gaze,","In what you see, your own reflection stays."]},
+
+{w:"قرار",wt:"qaraar",e:"peace/rest",t:"noun",s:2,r:"ar",hd:false,
+ h:"وہ سکون جسے بے چین روح ڈھونڈتی رہتی ہے",
+ hen:"The peace the restless soul spends its whole life searching for",
+ rap:["Qaraar is what the hustling heart can never seem to keep,","The thing you run toward but find only in sleep.","Don't confuse the stillness with the absence of the drive,","Qaraar is the peace that keeps the driven alive."],
+ sng:["Qaraar is the word I write when everything is noise,","The settling of the dust after the day destroys.","I found my qaraar not in the silence but in you,","The peace I needed was a person — now I knew."],
+ gu:["قرار ڈھونڈتا ہوں تجھ میں اے دل کی راحت","تو ہی میری منزل ہے تو ہی میری چاہت"],
+ ge:["I seek my peace in you, O rest of the heart,","You are my destination and the start of the start."]},
+
+{w:"گزر",wt:"guzar",e:"passage",t:"noun",s:2,r:"ar",hd:false,
+ h:"وقت کا گزرنا — چاہے ہم چلیں یا نہ چلیں",
+ hen:"The passing of time — whether we move or stand still",
+ rap:["Guzar keeps moving whether or not we agree,","Time does not wait for the ones who cannot see.","Make the guzar worth it — fill the passage with intent,","The time that's gone is the only time already spent."],
+ sng:["Guzar is all the seasons of the years gone by,","The moments that we lived beneath the changing sky.","I do not mourn the guzar — I celebrate what was,","Each passing is the price and also is the cause."],
+ gu:["گزر جاتا ہے وقت اور ہم سوچتے رہتے ہیں","لمحے بیت جاتے ہیں اور ہم روتے رہتے ہیں"],
+ ge:["Time passes on while we sit and think and wait,","Moments slip away while we mourn the passing date."]},
+
+// r=aan syl=2-3 (hard Urdu)
+{w:"آسمان",wt:"aasman",e:"sky",t:"noun",s:3,r:"aan",hd:false,
+ h:"وہ چھت جسے دیکھ کر انسان اپنی حد جانتا ہے",
+ hen:"The ceiling that makes us understand our own scale",
+ rap:["Aasman above you — it's the same sky everywhere,","No wall between the people when they look up and share.","The aasman reminds me that my ceiling has no end,","What I call impossible just needs the right a bend."],
+ sng:["Aasman, you hold the stars like secrets in your chest,","You stretch above us all, the patient, the blessed.","I look up to the aasman when words have lost their way,","The sky is always there to hold what I cannot say."],
+ gu:["آسمان سے پوچھا میں نے اپنی حد کا راز","بولا — تو جہاں تک سوچے وہیں تک ہے تیرا ناز"],
+ ge:["I asked the sky the secret of my limit's end,","It said — as far as you can think is where you transcend."]},
+
+{w:"جہاں",wt:"jahaan",e:"world",t:"noun",s:2,r:"aan",hd:false,
+ h:"وہ فضا جو سب مل کر بناتے ہیں اور کم ہی دیکھتے ہیں",
+ hen:"The space we all share and rarely truly see",
+ rap:["This jahaan is borrowed — we're just passing through,","Leave it better than you found it — that's the only cue.","The whole jahaan is smaller than a single act of grace,","One kind thing can shift the energy of any place."],
+ sng:["The jahaan is wide but all I need is here,","The world outside means nothing without you being near.","What is the jahaan if those you love are far away?","The whole wide world is narrowed to a single day."],
+ gu:["جہاں بڑا ہے مگر دل اس سے بڑا ہے","محبت نے کیا کیا، اس دل نے کیا کیا"],
+ ge:["The world is vast but the heart is wider still,","See what love has done — look at what this heart can fill."]},
+
+{w:"بیان",wt:"bayaan",e:"expression",t:"noun",s:2,r:"aan",hd:false,
+ h:"جو خاموشی کے ٹوٹنے پر بہہ نکلتا ہے",
+ hen:"What spills out when silence finally breaks open",
+ rap:["Bayaan is the gift of putting words to what you feel,","Make the invisible visible — that's what makes it real.","Don't swallow what needs saying — let the bayaan out,","Your silence serves no one if it hides what you're about."],
+ sng:["Bayaan, you are the bridge between the inside and the out,","The translation of the wordless into something without doubt.","I have searched for the bayaan that could hold what I became,","And found it in the lines where nothing stayed the same."],
+ gu:["بیان کرنا مشکل ہے جو دل میں ہے","لیکن اظہار نہ ہو تو درد بڑھتا ہے"],
+ ge:["It is difficult to express what lives in the heart,","But without expression the pain grows larger, apart."]},
+
+{w:"دوراں",wt:"dauran",e:"era",t:"noun",s:2,r:"aan",hd:true,
+ h:"وہ وقت جو تاریخ میں دے جاتا ہے — اور ہم اس کا حصہ ہیں",
+ hen:"The stretch of time that leaves a mark in history — and we are part of it",
+ rap:["Dauran gives every generation its own call,","The era shapes the ones who'll shape the rise and fall.","We are the dauran — this is not a rehearsal here,","The time we're in is also ours to steer."],
+ sng:["Dauran, you have given us this moment on the stage,","The era asks us: what will you write on this page?","We are the question and the answer of our time,","Dauran asks for action — give it something more than rhyme."],
+ gu:["دوراں بدلتا ہے مگر انسان کی ضرورت نہیں بدلتی","محبت، سچائی، حسن — یہ صدیوں کی منزل ہے یہ"],
+ ge:["Eras change but the needs of the human stay the same,","Love, truth, and beauty — across the centuries, the same refrain."]}
+]
+};
+
+// Topic word pools
+const TOPIC_POOLS = {
+  creativity:["aperture","catalyst","emergence","resonance","liminal","confluence","transmutation","lyrical","oscillation","fracture","luminous","constellation"],
+  language:["eloquence","lyrical","resonance","bayaan","visceral","rhetorical","symbolism","turbulence","numinous","stillness","texture","symmetrical"],
+  nature:["constellation","confluence","vastness","aasman","darya","fracture","luminous","ominous","ephemeral","texture","oscillation","rupture"],
+  philosophy:["liminal","numinous","tenuous","ephemeral","contemplation","rhetorical","satirical","oscillation","apophenia","symmetrical","ferocity","tenacity"],
+  music:["resonance","lyrical","oscillation","rapture","vivacity","stillness","turbulence","eloquence","numinous","texture","roshni","khamoshi"],
+  story:["constellation","liminal","transmutation","fracture","rupture","darkness","boldness","visceral","tenacity","safar","guzar","bayaan"],
+  courage:["boldness","audacity","tenacity","ferocity","fracture","rupture","jur'at","dileeri","jafakashi","visceral","luminous","vastness"],
+  stillness:["stillness","khamoshi","sukoon","qaraar","liminal","numinous","contemplation","vastness","raahat","tenuous","ephemeral","resonance"],
+  love:["mohabbat","qurbat","resonance","confluence","luminous","numinous","rapture","vivacity","zindagi","roshni","vastness","tenuous"],
+  speech:["eloquence","rhetorical","bayaan","lyrical","resonance","boldness","visceral","numinous","articulate","oscillation","contemplation","audacity"]
+};
+
+const STOP_WORDS = new Set(["the","a","an","is","it","in","of","to","and","or","but","for","on","at","by","this","that","with","from","be","are","was","were","have","has","had","do","does","did","will","would","could","should","may","might","i","you","he","she","we","they","my","your","his","her","our","their","its","not","no","so","if","as","up","out","all","been","me","him","us","them","what","when","where","who","how","which","than","then","into","through","over","about","just","more","also","there","here","each","can","get","got","go","said","make","made","like","know","want","well","see","come","own","say","good","much","any","after","before","about","still","even","back","only","new","first","last","most","some","other","time","way","day","life","man","world"]);
+
+// ===================== STATE =====================
+const S = {
+  lang:'en', mode:'normal', lyricStyle:'rap',
+  tab:'home',
+  rhyme:{ phase:'rhyme', count:0, family:[], lastKey:null, targetSyl:3 },
+  session:{ active:false, dur:10, remain:0, interval:null },
+  wordTimer:{ dur:15, remain:0, interval:null, active:false },
+  current:null,
+  wordCount:0,
+  seenWords:[],
+  studioLines:0,
+  studioMax:0
+};
+
+// ===================== STORAGE =====================
+function ld(k,fb){try{const v=localStorage.getItem(k);return v!=null?JSON.parse(v):fb}catch{return fb}}
+function sv(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch{}}
+
+// ===================== POOL =====================
+function getPool(){
+  const hidden=new Set(ld('wg-hidden',[]));
+  const base=WORDS[S.lang].filter(w=>{
+    if(hidden.has(w.w)) return false;
+    if(S.mode==='normal'&&w.hd) return false;
+    return true;
+  });
+  const corpus=ld('wg-corpus-words',[]);
+  return [...base,...corpus.filter(w=>!hidden.has(w.w))];
+}
+
+function buildFamilies(pool){
+  const fam={};
+  for(const w of pool){
+    const k=w.r+'_'+w.s;
+    if(!fam[k])fam[k]=[];
+    fam[k].push(w);
+  }
+  return fam;
+}
+
+function pickFamily(pool,lastKey,targetSyl){
+  const fam=buildFamilies(pool);
+  // Priority 1: same syl, different key
+  let cands=Object.entries(fam).filter(([k,ws])=>ws.length>=3&&!k.startsWith((lastKey||'NONE')+'_')&&k.endsWith('_'+targetSyl));
+  if(!cands.length){
+    // Priority 2: different key, any syl
+    cands=Object.entries(fam).filter(([k,ws])=>ws.length>=3&&!k.startsWith((lastKey||'NONE')+'_'));
+  }
+  if(!cands.length){
+    // Priority 3: any family
+    cands=Object.entries(fam).filter(([,ws])=>ws.length>=3);
+  }
+  if(!cands.length) return pool;
+  const [,words]=cands[Math.floor(Math.random()*cands.length)];
+  return words;
+}
+
+// ===================== RHYME ENGINE =====================
+function nextWord(){
+  const pool=getPool();
+  if(!pool.length) return;
+
+  let entry;
+  const R=S.rhyme;
+
+  // Spaced repetition: every 7th word, show a starred word
+  if(S.wordCount>0&&S.wordCount%7===0){
+    const fav=ld('wg-favourites',[]).filter(f=>!S.seenWords.includes(f.w));
+    if(fav.length){
+      const pick=fav[Math.floor(Math.random()*fav.length)];
+      const found=WORDS[S.lang].find(w=>w.w===pick.w)||WORDS[S.lang==='en'?'ur':'en'].find(w=>w.w===pick.w);
+      if(found){ entry=found; entry._review=true; }
+    }
+  }
+
+  if(!entry){
+    if(R.phase==='rhyme'){
+      if(!R.family.length){
+        R.family=pickFamily(pool,R.lastKey,R.targetSyl);
+      }
+      const avail=R.family.filter(w=>!S.seenWords.slice(-10).includes(w.w));
+      entry=(avail.length?avail:R.family)[Math.floor(Math.random()*(avail.length||R.family.length))];
+      R.count++;
+      if(R.count>=3){
+        R.lastKey=R.family[0]?.r;
+        R.targetSyl=R.family[0]?.s||3;
+        R.phase='solo';R.count=0;R.family=[];
+      }
+    } else {
+      const avail=pool.filter(w=>w.r!==R.lastKey);
+      entry=(avail.length?avail:pool)[Math.floor(Math.random()*(avail.length||pool.length))];
+      R.phase='rhyme';R.family=[];
+    }
+  }
+
+  S.current=entry;
+  S.wordCount++;
+  S.seenWords.push(entry.w);
+  renderWord(entry);
+  if(S.wordTimer.active) startWordTimer();
+}
+
+// ===================== RENDER WORD =====================
+function renderWord(e){
+  const isEN=S.lang==='en';
+  const wordEl=document.getElementById('word-main');
+  wordEl.classList.add('fade');
+  setTimeout(()=>{
+    if(isEN){
+      wordEl.textContent=e.w;
+      wordEl.className='';
+      document.getElementById('word-trans').innerHTML=`<span class="ur-word">${e.u||''}</span>`;
+      document.getElementById('word-translit').textContent=e.ut?`(${e.ut})`:'';
+    } else {
+      wordEl.innerHTML=`<span class="ur-word">${e.w}</span>`;
+      wordEl.className='';
+      document.getElementById('word-trans').textContent=e.e||'';
+      document.getElementById('word-translit').textContent=e.wt?`(${e.wt})`:'';
+    }
+    document.getElementById('word-type').textContent=e.t||'';
+    document.getElementById('word-hint').textContent=isEN?e.h:(e.hen||e.h);
+    renderLyric(e);
+    renderDots();
+    const rb=document.getElementById('review-badge');
+    rb.style.display=e._review?'inline-block':'none';
+    e._review=false;
+    // Update star button
+    const fav=ld('wg-favourites',[]);
+    const starred=fav.some(f=>f.w===e.w);
+    document.getElementById('star-btn').className='act-btn'+(starred?' starred':'');
+  },200);
+}
+
+function renderLyric(e){
+  const ls=S.lyricStyle;
+  const lyricBox=document.getElementById('lyric-box');
+  const lyricText=document.getElementById('lyric-text');
+  const ghazalUr=document.getElementById('ghazal-ur');
+  const ghazalEn=document.getElementById('ghazal-en');
+  if(ls==='ghazal'){
+    lyricText.style.display='none';
+    ghazalUr.style.display='block';
+    ghazalEn.style.display='block';
+    ghazalUr.textContent=(e.gu||[''])[0]+(e.gu?('\n'+(e.gu[1]||'')):'');
+    ghazalEn.textContent=(e.ge||['',''])[0]+'\n'+(e.ge?e.ge[1]:'');
+  } else {
+    lyricText.style.display='block';
+    ghazalUr.style.display='none';
+    ghazalEn.style.display='none';
+    const lines=ls==='rap'?e.rap:e.sng;
+    lyricText.textContent=lines?(lines[0]+'\n'+lines[1]):'';
+  }
+}
+
+function renderDots(){
+  const R=S.rhyme;
+  const count=R.phase==='rhyme'?R.count:3;
+  for(let i=0;i<3;i++){
+    document.getElementById('dot'+i).classList.toggle('filled',i<count);
+  }
+  document.getElementById('dot3').classList.toggle('filled',R.phase==='solo');
+}
+
+// ===================== LYRIC STYLE =====================
+function setLyricStyle(s){
+  S.lyricStyle=s;
+  document.querySelectorAll('.lyric-style-btn').forEach(b=>b.classList.toggle('active',b.dataset.style===s));
+  if(S.current) renderLyric(S.current);
+}
+
+// ===================== LANGUAGE / MODE =====================
+function setLang(lang){
+  S.lang=lang;
+  S.rhyme={phase:'rhyme',count:0,family:[],lastKey:null,targetSyl:3};
+  S.seenWords=[];S.wordCount=0;
+  document.querySelectorAll('.lang-toggle button').forEach((b,i)=>b.classList.toggle('active',(i===0&&lang==='en')||(i===1&&lang==='ur')));
+  nextWord();
+}
+function setMode(m){
+  S.mode=m;
+  document.querySelectorAll('.mode-btn').forEach(b=>b.classList.toggle('active',b.textContent.toLowerCase()===m));
+  nextWord();
+}
+
+// ===================== SESSION TIMER =====================
+function toggleSession(){
+  if(S.session.active){ stopSession(); return; }
+  startSession();
+}
+function startSession(){
+  S.session.active=true;
+  S.session.remain=S.session.dur*60;
+  S.seenWords=[];S.wordCount=0;
+  document.getElementById('session-btn').textContent='Stop';
+  document.getElementById('session-btn').classList.add('active');
+  S.session.interval=setInterval(tickSession,1000);
+  nextWord();
+  if(S.wordTimer.dur>0){ S.wordTimer.active=true; startWordTimer(); }
+}
+function tickSession(){
+  S.session.remain--;
+  const m=Math.floor(S.session.remain/60);
+  const s=S.session.remain%60;
+  document.getElementById('session-countdown').textContent=`${m}:${s.toString().padStart(2,'0')}`;
+  if(S.session.remain<=0) endSession();
+}
+function stopSession(){
+  clearInterval(S.session.interval);
+  clearInterval(S.wordTimer.interval);
+  S.session.active=false;S.wordTimer.active=false;
+  document.getElementById('session-btn').textContent='Start';
+  document.getElementById('session-btn').classList.remove('active');
+  document.getElementById('session-countdown').textContent='';
+  document.getElementById('word-timer-ring').style.display='none';
+}
+function endSession(){
+  stopSession();
+  if(S.seenWords.length>=3) startMemoryTest();
+}
+
+// ===================== WORD TIMER =====================
+function startWordTimer(){
+  clearInterval(S.wordTimer.interval);
+  if(!S.wordTimer.dur) return;
+  S.wordTimer.remain=S.wordTimer.dur;
+  document.getElementById('word-timer-ring').style.display='block';
+  updateTimerRing(1);
+  S.wordTimer.interval=setInterval(()=>{
+    S.wordTimer.remain--;
+    updateTimerRing(S.wordTimer.remain/S.wordTimer.dur);
+    if(S.wordTimer.remain<=0) nextWord();
+  },1000);
+}
+function updateTimerRing(pct){
+  const circ=97.4;
+  document.getElementById('timer-circle').style.strokeDashoffset=circ*(1-pct);
+}
+
+// ===================== STAR / HIDE =====================
+function toggleStar(){
+  if(!S.current) return;
+  const e=S.current;
+  let fav=ld('wg-favourites',[]);
+  const idx=fav.findIndex(f=>f.w===e.w);
+  if(idx>=0) fav.splice(idx,1);
+  else fav.unshift({w:e.w,t:e.t,h:S.lang==='en'?e.h:e.hen||e.h,
+    rap:e.rap?e.rap[0]+'\n'+e.rap[1]:'',lang:S.lang,
+    savedAt:Date.now(),reviewCount:0});
+  sv('wg-favourites',fav);
+  const starred=idx<0;
+  document.getElementById('star-btn').className='act-btn'+(starred?' starred':'');
+  renderJournal();
+}
+
+function hideCurrentWord(){
+  if(!S.current) return;
+  const hidden=ld('wg-hidden',[]);
+  if(!hidden.includes(S.current.w)){
+    hidden.push(S.current.w);
+    sv('wg-hidden',hidden);
+  }
+  renderHiddenWords();
+  nextWord();
+}
+
+// ===================== MEMORY TEST =====================
+let mtWords=[],mtIdx=0,mtCorrect=0,mtMissed=[];
+function startMemoryTest(){
+  const seen=[...new Set(S.seenWords)];
+  const pool=WORDS[S.lang];
+  mtWords=seen.slice(-Math.min(seen.length,10))
+    .map(w=>pool.find(e=>e.w===w)).filter(Boolean);
+  if(mtWords.length<3){endMemoryTest();return;}
+  mtIdx=0;mtCorrect=0;mtMissed=[];
+  document.getElementById('memory-test').classList.add('active');
+  renderMTQuestion();
+}
+function renderMTQuestion(){
+  if(mtIdx>=mtWords.length){showScore();return;}
+  const e=mtWords[mtIdx];
+  const total=mtWords.length;
+  document.getElementById('mt-progress').textContent=`Question ${mtIdx+1} of ${total}`;
+  document.getElementById('mt-fill').style.width=`${(mtIdx/total)*100}%`;
+  document.getElementById('mt-hint').textContent=S.lang==='en'?e.h:e.hen||e.h;
+  // Build options
+  const pool=WORDS[S.lang];
+  const wrong=pool.filter(w=>w.w!==e.w).sort(()=>Math.random()-.5).slice(0,3);
+  const opts=[e,...wrong].sort(()=>Math.random()-.5);
+  const c=document.getElementById('mt-options');
+  c.innerHTML=opts.map(o=>`<button class="mt-opt" onclick="checkAnswer(this,'${o.w}','${e.w}')">${o.w}</button>`).join('');
+}
+function checkAnswer(btn,chosen,correct){
+  document.querySelectorAll('.mt-opt').forEach(b=>b.disabled=true);
+  btn.classList.add(chosen===correct?'correct':'wrong');
+  if(chosen===correct) mtCorrect++;
+  else { mtMissed.push(correct); document.querySelector(`.mt-opt[onclick*="'${correct}'"]`)?.classList.add('correct'); }
+  mtIdx++;
+  setTimeout(renderMTQuestion,900);
+}
+function showScore(){
+  document.getElementById('memory-test').classList.remove('active');
+  const pct=Math.round((mtCorrect/mtWords.length)*100);
+  document.getElementById('score-emoji').textContent=pct>=80?'🎯':pct>=50?'💪':'📚';
+  document.getElementById('score-num').textContent=`${mtCorrect}/${mtWords.length}`;
+  document.getElementById('score-label').textContent=`${pct}% — ${pct>=80?'Excellent!':pct>=50?'Good work!':'Keep practising!'}`;
+  document.getElementById('score-screen').classList.add('active');
+  const scores=ld('wg-scores',[]);
+  scores.unshift({date:Date.now(),correct:mtCorrect,total:mtWords.length});
+  sv('wg-scores',scores.slice(0,20));
+  renderScores();
+}
+function reviewMissed(){
+  document.getElementById('score-screen').classList.remove('active');
+  if(mtMissed.length){
+    const pool=WORDS[S.lang];
+    const entry=pool.find(w=>w.w===mtMissed[0]);
+    if(entry){S.current=entry;renderWord(entry);}
+  }
+}
+function endMemoryTest(){
+  document.getElementById('memory-test').classList.remove('active');
+  document.getElementById('score-screen').classList.remove('active');
+}
+
+// ===================== JOURNAL =====================
+function renderJournal(){
+  const fav=ld('wg-favourites',[]);
+  const el=document.getElementById('journal-list');
+  if(!fav.length){el.innerHTML='<div class="empty-state">No starred words yet</div>';return;}
+  el.innerHTML=fav.map(f=>`
+    <div class="journal-entry">
+      <div class="j-word">${f.w}</div>
+      <div class="j-meta">${new Date(f.savedAt).toLocaleDateString()}</div>
+      <div class="j-hint">${f.h}</div>
+      ${f.rap?`<div class="j-lyric">${f.rap}</div>`:''}
+      <div class="j-actions">
+        <button class="j-btn" onclick="removeFromJournal('${f.w}')">Remove</button>
+      </div>
+    </div>`).join('');
+}
+function removeFromJournal(w){
+  let fav=ld('wg-favourites',[]);
+  fav=fav.filter(f=>f.w!==w);
+  sv('wg-favourites',fav);
+  renderJournal();
+}
+function exportJournal(){
+  const fav=ld('wg-favourites',[]);
+  const txt=fav.map(f=>`${f.w} — ${f.h}\n${f.rap||''}`).join('\n\n');
+  navigator.clipboard?.writeText(txt).then(()=>alert('Copied to clipboard!'));
+}
+function renderScores(){
+  const scores=ld('wg-scores',[]);
+  const el=document.getElementById('scores-list');
+  if(!scores.length){el.innerHTML='<div class="empty-state">No sessions yet</div>';return;}
+  el.innerHTML=scores.slice(0,10).map(s=>`
+    <div class="score-item">
+      <span>${new Date(s.date).toLocaleDateString()}</span>
+      <span>${s.correct}/${s.total} (${Math.round(s.correct/s.total*100)}%)</span>
+    </div>`).join('');
+}
+
+// ===================== TOPICS =====================
+function buildTopicSelect(){
+  const custom=ld('wg-topics',[]);
+  const all=[...Object.keys(TOPIC_POOLS),...custom];
+  const sel=document.getElementById('topic-select');
+  sel.innerHTML='<option value="">Select topic…</option>'+all.map(t=>`<option>${t}</option>`).join('');
+  const custEl=document.getElementById('custom-topics-list');
+  custEl.innerHTML=custom.length?custom.map(t=>`
+    <span style="display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:20px;border:1px solid var(--border);font-size:13px;margin:4px">
+      ${t}<button onclick="removeCustomTopic('${t}')" style="color:var(--text3);font-size:16px;line-height:1">×</button>
+    </span>`).join(''):'';
+}
+function addCustomTopic(){
+  const inp=document.getElementById('new-topic-input');
+  const t=inp.value.trim();
+  if(!t) return;
+  const custom=ld('wg-topics',[]);
+  if(!custom.includes(t)) custom.push(t);
+  sv('wg-topics',custom);
+  inp.value='';
+  buildTopicSelect();
+}
+function removeCustomTopic(t){
+  let custom=ld('wg-topics',[]);
+  custom=custom.filter(c=>c!==t);
+  sv('wg-topics',custom);
+  buildTopicSelect();
+}
+function generateTopicWords(){
+  const topic=document.getElementById('topic-select').value;
+  const grid=document.getElementById('topic-words-grid');
+  if(!topic){grid.innerHTML='<span class="empty-state">Select a topic</span>';return;}
+  const pool=TOPIC_POOLS[topic]||[];
+  // Also include any words from either language that match
+  const allW=[...WORDS.en,...WORDS.ur];
+  const extra=allW.filter(w=>w.h?.toLowerCase().includes(topic)||w.w?.toLowerCase().includes(topic)).map(w=>w.w);
+  const combined=[...new Set([...pool,...extra])].sort(()=>Math.random()-.5).slice(0,12);
+  grid.innerHTML=combined.map(w=>`<span class="topic-chip" onclick="showTopicWord('${w}')">${w}</span>`).join('');
+}
+function showTopicWord(wStr){
+  const entry=[...WORDS.en,...WORDS.ur].find(w=>w.w===wStr);
+  if(!entry) return;
+  switchTab('home');
+  S.current=entry;
+  renderWord(entry);
+}
+
+// ===================== CORPUS =====================
+function processCorpus(){
+  const text=document.getElementById('corpus-input').value;
+  if(!text.trim()) return;
+  const tokens=text.toLowerCase().match(/\b[a-z']{4,}\b/g)||[];
+  const words=[...new Set(tokens.filter(t=>!STOP_WORDS.has(t)))];
+  // Build simple word entries from extracted words
+  const entries=words.slice(0,50).map(w=>({
+    w,u:'',ut:'',t:'noun',s:countSyl(w),r:getRhymeKey(w),hd:false,
+    h:`from your personal text`,
+    rap:[`I found the word "${w}" living in my own writing,`,"A piece of my own world that I found worth reciting.","The words we use reveal the life we're building here,","Every piece of text becomes a mirror, sharp and clear."],
+    sng:[`"${w}" — a word from my own hand and mind,`,"The kind of word my own experience left behind.","We write ourselves into the words we choose to use,","The personal vocabulary is the one we rarely lose."],
+    gu:['اپنے الفاظ میں اپنا چہرہ دیکھو','لکھی ہوئی باتوں میں اپنی جھلک دیکھو'],
+    ge:["Look for your own face in the words you use,","In what you've written, find the self you choose."]
+  }));
+  sv('wg-corpus-words',entries);
+  document.getElementById('corpus-stats').textContent=`✓ ${entries.length} words extracted from your text`;
+}
+function clearCorpus(){
+  sv('wg-corpus-words',[]);
+  document.getElementById('corpus-stats').textContent='Corpus cleared.';
+}
+function countSyl(w){
+  const m=w.match(/[aeiouy]+/gi);return Math.max(1,m?m.length:1);
+}
+function getRhymeKey(w){
+  return w.slice(-3)||w;
+}
+
+// ===================== HIDDEN WORDS =====================
+function renderHiddenWords(){
+  const hidden=ld('wg-hidden',[]);
+  const el=document.getElementById('hidden-words-list');
+  if(!hidden.length){el.innerHTML='<div class="empty-state" style="padding:12px 0">No hidden words</div>';return;}
+  el.innerHTML=hidden.map(w=>`
+    <div class="hidden-word-item">
+      <span class="hw-word">${w}</span>
+      <button class="restore-btn" onclick="restoreWord('${w}')">Restore</button>
+    </div>`).join('');
+}
+function restoreWord(w){
+  let hidden=ld('wg-hidden',[]);
+  hidden=hidden.filter(h=>h!==w);
+  sv('wg-hidden',hidden);
+  renderHiddenWords();
+}
+
+// ===================== PREFS =====================
+function initPrefs(){
+  // Session duration
+  document.querySelectorAll('.dur-btn').forEach(b=>{
+    b.classList.toggle('active',parseInt(b.dataset.d)===S.session.dur);
+    b.onclick=()=>{
+      S.session.dur=parseInt(b.dataset.d);
+      sv('wg-session-dur',S.session.dur);
+      document.querySelectorAll('.dur-btn').forEach(x=>x.classList.remove('active'));
+      b.classList.add('active');
+    };
+  });
+  // Word timer
+  document.querySelectorAll('.wt-btn').forEach(b=>{
+    b.classList.toggle('active',parseInt(b.dataset.wt)===S.wordTimer.dur);
+    b.onclick=()=>{
+      S.wordTimer.dur=parseInt(b.dataset.wt);
+      sv('wg-word-timer',S.wordTimer.dur);
+      document.querySelectorAll('.wt-btn').forEach(x=>x.classList.remove('active'));
+      b.classList.add('active');
+    };
+  });
+  // Load corpus text
+  const corpus=ld('wg-corpus-words',[]);
+  if(corpus.length) document.getElementById('corpus-stats').textContent=`${corpus.length} words in corpus`;
+}
+
+// ===================== LYRIC STUDIO =====================
+function openLyricStudio(){
+  if(!S.current) return;
+  S.studioLines=2;S.studioMax=4;
+  document.getElementById('studio-word').textContent=S.current.w;
+  document.getElementById('studio-bg').classList.add('open');
+  document.getElementById('lyric-studio').classList.add('open');
+  setStudioStyle(S.lyricStyle);
+  document.querySelectorAll('.studio-style-btn').forEach(b=>b.classList.toggle('active',b.dataset.s===S.lyricStyle));
+}
+function closeLyricStudio(){
+  document.getElementById('studio-bg').classList.remove('open');
+  document.getElementById('lyric-studio').classList.remove('open');
+}
+function setStudioStyle(s){
+  S.lyricStyle=s;
+  document.querySelectorAll('.studio-style-btn').forEach(b=>b.classList.toggle('active',b.dataset.s===s));
+  document.querySelectorAll('.lyric-style-btn').forEach(b=>b.classList.toggle('active',b.dataset.style===s));
+  if(!S.current) return;
+  const e=S.current;
+  const lines=s==='ghazal'?null:(s==='rap'?e.rap:e.sng);
+  const el=document.getElementById('studio-lines');
+  if(s==='ghazal'){
+    el.innerHTML=`
+      <div class="studio-line visible studio-ur-line">${(e.gu||[]).join('<br>')}</div>
+      <div class="studio-line visible studio-en-line">${(e.ge||[]).join('<br>')}</div>`;
+    document.getElementById('studio-reveal-btn').style.display='none';
+  } else if(lines){
+    el.innerHTML=lines.map((l,i)=>`<div class="studio-line${i<2?' visible':''}">${l}</div>`).join('');
+    S.studioLines=2;S.studioMax=lines.length;
+    document.getElementById('studio-reveal-btn').style.display=S.studioLines<S.studioMax?'block':'none';
+  }
+}
+function revealNextLine(){
+  const lines=document.querySelectorAll('#studio-lines .studio-line');
+  if(S.studioLines<lines.length){
+    lines[S.studioLines].classList.add('visible','revealed');
+    S.studioLines++;
+  }
+  document.getElementById('studio-reveal-btn').style.display=S.studioLines<lines.length?'block':'none';
+}
+function saveVerse(){
+  if(!S.current) return;
+  const e=S.current;
+  const fav=ld('wg-favourites',[]);
+  const idx=fav.findIndex(f=>f.w===e.w);
+  const lines=(S.lyricStyle==='rap'?e.rap:e.sng)||[];
+  const verse=lines.join('\n');
+  if(idx>=0) fav[idx].verse=verse;
+  else fav.unshift({w:e.w,t:e.t,h:e.h||e.hen,rap:verse,lang:S.lang,savedAt:Date.now(),reviewCount:0});
+  sv('wg-favourites',fav);
+  renderJournal();
+  closeLyricStudio();
+}
+
+// ===================== TAB SWITCHING =====================
+function switchTab(tab){
+  S.tab=tab;
+  document.querySelectorAll('.panel').forEach(p=>p.classList.toggle('active',p.id==='panel-'+tab));
+  document.querySelectorAll('.nav-btn').forEach((b,i)=>{
+    const tabs=['home','topics','journal','prefs'];
+    b.classList.toggle('active',tabs[i]===tab);
+  });
+  if(tab==='journal'){renderJournal();renderScores();}
+  if(tab==='prefs'){renderHiddenWords();}
+}
+
+// ===================== TOUCH SWIPE =====================
+let touchStartX=0;
+document.addEventListener('touchstart',e=>{touchStartX=e.touches[0].clientX},{passive:true});
+document.addEventListener('touchend',e=>{
+  if(S.tab!=='home') return;
+  const dx=e.changedTouches[0].clientX-touchStartX;
+  if(Math.abs(dx)>60){
+    if(dx<0) nextWord();
+    else toggleStar();
+  }
+},{passive:true});
+
+// ===================== INIT =====================
+function init(){
+  S.session.dur=ld('wg-session-dur',10);
+  S.wordTimer.dur=ld('wg-word-timer',15);
+  initPrefs();
+  buildTopicSelect();
+  renderHiddenWords();
+  nextWord();
+}
+init();
+</script>
+</body>
+</html>
