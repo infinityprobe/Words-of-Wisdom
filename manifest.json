@@ -1,0 +1,19 @@
+{
+  "name": "Word Generator",
+  "short_name": "Words",
+  "description": "Bilingual free association word generator with rhyming sequences, rap/song/ghazal lyrics, and a memory test.",
+  "display": "standalone",
+  "orientation": "portrait",
+  "start_url": "./index.html",
+  "scope": "./",
+  "theme_color": "#6366f1",
+  "background_color": "#fafafa",
+  "icons": [
+    {
+      "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'%3E%3Crect width='192' height='192' rx='38' fill='%236366f1'/%3E%3Ctext x='50%25' y='58%25' dominant-baseline='middle' text-anchor='middle' font-size='110' font-family='serif' fill='white'%3EW%3C/text%3E%3C/svg%3E",
+      "sizes": "192x192",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
