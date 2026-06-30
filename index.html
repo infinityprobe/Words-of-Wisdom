@@ -30,14 +30,14 @@
     --border:#333;--card:#1e1e1e;--shadow:0 1px 4px rgba(0,0,0,.4);
   }
 }
-body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;min-height:100dvh;display:flex;flex-direction:column;max-width:480px;margin:0 auto}
+body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;min-height:100dvh;display:flex;flex-direction:column;max-width:480px;margin:0 auto;padding-left:env(safe-area-inset-left,0px);padding-right:env(safe-area-inset-right,0px)}
 button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit}
 input,select,textarea{font-family:inherit;color:inherit;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:8px 12px;font-size:14px;width:100%;outline:none}
 input:focus,select:focus,textarea:focus{border-color:var(--accent)}
 textarea{resize:vertical;min-height:80px}
 
 /* TOP BAR */
-#top-bar{display:flex;align-items:center;gap:8px;padding:12px 16px 8px;border-bottom:1px solid var(--border);background:var(--bg);position:sticky;top:0;z-index:10}
+#top-bar{display:flex;align-items:center;gap:8px;padding:calc(10px + env(safe-area-inset-top,0px)) 16px 8px;border-bottom:1px solid var(--border);background:var(--bg);position:sticky;top:0;z-index:10}
 .lang-toggle{display:flex;border:1px solid var(--border);border-radius:20px;overflow:hidden}
 .lang-toggle button{padding:4px 14px;font-size:13px;font-weight:500;border-radius:20px;transition:all .15s}
 .lang-toggle button.active{background:var(--accent);color:#fff}
@@ -782,12 +782,13 @@ const STOP_WORDS = new Set(["the","a","an","is","it","in","of","to","and","or","
 const S = {
   lang:'en', mode:'normal', lyricStyle:'rap',
   tab:'home',
-  rhyme:{ phase:'rhyme', count:0, family:[], lastKey:null, targetSyl:3 },
+  rhyme:{ phase:'rhyme', count:0, family:[], lastKey:null, targetSyl:3, runUsed:[] },
   session:{ active:false, dur:10, remain:0, interval:null },
   wordTimer:{ dur:15, remain:0, interval:null, active:false },
   current:null,
   wordCount:0,
   seenWords:[],
+  reviewedThisSession:[],
   studioLines:0,
   studioMax:0
 };
@@ -808,6 +809,30 @@ function getPool(){
   return [...base,...corpus.filter(w=>!hidden.has(w.w))];
 }
 
+// Cross-session recency: words shown recently (persisted) are avoided until the pool cycles
+function getRecent(){ return ld('wg-recent',[]); }
+function pushRecent(w){
+  let r=ld('wg-recent',[]).filter(x=>x!==w); r.push(w);
+  const cap=Math.min(40,Math.max(12,Math.floor(getPool().length*0.6)));
+  while(r.length>cap) r.shift();
+  sv('wg-recent',r);
+}
+// Bring back a starred word only if it hasn't been reviewed for >=3 sessions
+function pickDueReview(){
+  const sc=ld('wg-session-count',0);
+  const fav=ld('wg-favourites',[]);
+  const due=fav.filter(f=>(sc-(f.lastSession??sc))>=3 && !S.seenWords.includes(f.w) && !S.reviewedThisSession.includes(f.w));
+  if(!due.length) return null;
+  const pick=due[Math.floor(Math.random()*due.length)];
+  const found=WORDS[S.lang].find(w=>w.w===pick.w)||WORDS.en.find(w=>w.w===pick.w)||WORDS.ur.find(w=>w.w===pick.w);
+  if(!found) return null;
+  found._review=true;
+  S.reviewedThisSession.push(pick.w);
+  const idx=fav.findIndex(f=>f.w===pick.w);
+  if(idx>=0){ fav[idx].lastSession=sc; sv('wg-favourites',fav); }
+  return found;
+}
+
 function buildFamilies(pool){
   const fam={};
   for(const w of pool){
@@ -820,19 +845,26 @@ function buildFamilies(pool){
 
 function pickFamily(pool,lastKey,targetSyl){
   const fam=buildFamilies(pool);
-  // Priority 1: same syl, different key
-  let cands=Object.entries(fam).filter(([k,ws])=>ws.length>=3&&!k.startsWith((lastKey||'NONE')+'_')&&k.endsWith('_'+targetSyl));
-  if(!cands.length){
-    // Priority 2: different key, any syl
-    cands=Object.entries(fam).filter(([k,ws])=>ws.length>=3&&!k.startsWith((lastKey||'NONE')+'_'));
+  const seen=new Set(S.seenWords), recent=new Set(getRecent());
+  const fresh=ws=>ws.filter(w=>!seen.has(w.w)&&!recent.has(w.w)).length;
+  // Among a tier of candidate families, prefer the one with the most fresh words
+  function choose(cands){
+    if(!cands.length) return null;
+    const max=Math.max(...cands.map(([,ws])=>fresh(ws)));
+    const top=cands.filter(([,ws])=>fresh(ws)===max);
+    const from=top.length?top:cands;
+    return from[Math.floor(Math.random()*from.length)][1];
   }
-  if(!cands.length){
-    // Priority 3: any family
-    cands=Object.entries(fam).filter(([,ws])=>ws.length>=3);
-  }
-  if(!cands.length) return pool;
-  const [,words]=cands[Math.floor(Math.random()*cands.length)];
-  return words;
+  // Priority 1: same syllable count, different rhyme key
+  let r=choose(Object.entries(fam).filter(([k,ws])=>ws.length>=3&&!k.startsWith((lastKey||'NONE')+'_')&&k.endsWith('_'+targetSyl)));
+  if(r) return r;
+  // Priority 2: different rhyme key, any syllable count
+  r=choose(Object.entries(fam).filter(([k,ws])=>ws.length>=3&&!k.startsWith((lastKey||'NONE')+'_')));
+  if(r) return r;
+  // Priority 3: any family with enough words
+  r=choose(Object.entries(fam).filter(([,ws])=>ws.length>=3));
+  if(r) return r;
+  return pool;
 }
 
 // ===================== RHYME ENGINE =====================
@@ -843,39 +875,40 @@ function nextWord(){
   let entry;
   const R=S.rhyme;
 
-  // Spaced repetition: every 7th word, show a starred word
-  if(S.wordCount>0&&S.wordCount%7===0){
-    const fav=ld('wg-favourites',[]).filter(f=>!S.seenWords.includes(f.w));
-    if(fav.length){
-      const pick=fav[Math.floor(Math.random()*fav.length)];
-      const found=WORDS[S.lang].find(w=>w.w===pick.w)||WORDS[S.lang==='en'?'ur':'en'].find(w=>w.w===pick.w);
-      if(found){ entry=found; entry._review=true; }
-    }
+  // Cross-session spaced repetition: only during an active session, surface a
+  // starred word that hasn't been reviewed for >=3 sessions (not within-session)
+  if(S.session.active && S.wordCount>0 && S.wordCount%9===0){
+    entry=pickDueReview();
   }
 
   if(!entry){
+    const seen=new Set(S.seenWords), recent=new Set(getRecent());
+    const choose=arr=>arr[Math.floor(Math.random()*arr.length)];
     if(R.phase==='rhyme'){
-      if(!R.family.length){
-        R.family=pickFamily(pool,R.lastKey,R.targetSyl);
-      }
-      const avail=R.family.filter(w=>!S.seenWords.slice(-10).includes(w.w));
-      entry=(avail.length?avail:R.family)[Math.floor(Math.random()*(avail.length||R.family.length))];
+      if(!R.family.length){ R.family=pickFamily(pool,R.lastKey,R.targetSyl); R.runUsed=[]; }
+      const used=new Set(R.runUsed);
+      const cands=R.family.filter(w=>!used.has(w.w));           // never repeat within a rhyme run
+      let pref=cands.filter(w=>!seen.has(w.w)&&!recent.has(w.w)); // prefer fresh
+      if(!pref.length) pref=cands.filter(w=>!seen.has(w.w));      // then unseen this session
+      if(!pref.length) pref=cands.length?cands:R.family;         // last resort
+      entry=choose(pref);
+      R.runUsed.push(entry.w);
       R.count++;
-      if(R.count>=3){
-        R.lastKey=R.family[0]?.r;
-        R.targetSyl=R.family[0]?.s||3;
-        R.phase='solo';R.count=0;R.family=[];
-      }
+      if(R.count>=3){ R.lastKey=R.family[0]?.r; R.targetSyl=R.family[0]?.s||3; R.phase='solo'; R.count=0; R.family=[]; R.runUsed=[]; }
     } else {
-      const avail=pool.filter(w=>w.r!==R.lastKey);
-      entry=(avail.length?avail:pool)[Math.floor(Math.random()*(avail.length||pool.length))];
-      R.phase='rhyme';R.family=[];
+      const cands=pool.filter(w=>w.r!==R.lastKey);
+      let pref=cands.filter(w=>!seen.has(w.w)&&!recent.has(w.w));
+      if(!pref.length) pref=cands.filter(w=>!seen.has(w.w));
+      if(!pref.length) pref=cands.length?cands:pool;
+      entry=choose(pref);
+      R.phase='rhyme'; R.family=[]; R.runUsed=[];
     }
   }
 
   S.current=entry;
   S.wordCount++;
   S.seenWords.push(entry.w);
+  pushRecent(entry.w);
   renderWord(entry);
   if(S.wordTimer.active) startWordTimer();
 }
@@ -971,6 +1004,8 @@ function startSession(){
   S.session.active=true;
   S.session.remain=S.session.dur*60;
   S.seenWords=[];S.wordCount=0;
+  S.reviewedThisSession=[];
+  sv('wg-session-count',ld('wg-session-count',0)+1);
   document.getElementById('session-btn').textContent='Stop';
   document.getElementById('session-btn').classList.add('active');
   S.session.interval=setInterval(tickSession,1000);
@@ -1025,7 +1060,7 @@ function toggleStar(){
   if(idx>=0) fav.splice(idx,1);
   else fav.unshift({w:e.w,t:e.t,h:S.lang==='en'?e.h:e.hen||e.h,
     rap:e.rap?e.rap[0]+'\n'+e.rap[1]:'',lang:S.lang,
-    savedAt:Date.now(),reviewCount:0});
+    savedAt:Date.now(),reviewCount:0,lastSession:ld('wg-session-count',0)});
   sv('wg-favourites',fav);
   const starred=idx<0;
   document.getElementById('star-btn').className='act-btn'+(starred?' starred':'');
@@ -1261,6 +1296,43 @@ function initPrefs(){
   if(corpus.length) document.getElementById('corpus-stats').textContent=`${corpus.length} words in corpus`;
 }
 
+// ===================== GHAZAL — SECOND COUPLETS (ashaar) =====================
+// Each word's ghazal can extend to a second sher (2 more lines), revealed in the studio.
+const G2={
+ "liminal":{u:["یہ درمیاں کی جگہ ہی تو اصل ٹھکانہ ہے","نہ صبح ہے ابھی، نہ رات کا فسانہ ہے"],e:["This in-between place is the real dwelling,","Not yet morning, nor the tale of night."]},
+ "visceral":{u:["دلیل سے بھی پہلے جو دل میں اتر آتا ہے","وہی غریزہ سب سے سچا بتاتا ہے"],e:["What sinks into the heart before any logic,","That instinct tells the truest thing of all."]},
+ "lyrical":{u:["ہر لفظ کے اندر کوئی نغمہ چھپا ہوا","شاعر کے لہجے میں ہے اک دریا بہا ہوا"],e:["Inside each word a melody lies hidden,","In the poet's tone flows an ever-moving river."]},
+ "spherical":{u:["یہ دنیا گول ہے، ہر بات لوٹ آتی ہے","جو دے کے جاؤ وہی شے پلٹ کے آتی ہے"],e:["This world is round — everything comes back around,","What you give returns to you, turning back."]},
+ "resonance":{u:["صدا تو ختم ہوئی، گونج باقی رہتی ہے","تری یاد بھی اسی گونج میں ساکن رہتی ہے"],e:["The sound has ended, but the echo remains,","Your memory too rests within that echo."]},
+ "confluence":{u:["دو راستے جہاں ملتے ہیں، منزل وہیں ہے","جدائی کے بعد کا یہ سنگم کتنا حسیں ہے"],e:["Where two roads meet, there the destination is,","How lovely this confluence after separation."]},
+ "turbulence":{u:["جو ہنگامے میں بھی اپنا توازن رکھتا ہے","وہی طوفان کے سینے پہ قدم رکھتا ہے"],e:["Whoever keeps their balance even in the chaos,","That one sets foot upon the chest of the storm."]},
+ "eloquence":{u:["زبان وہی ہے جو دل تک اتر جائے","فصاحت وہی ہے جو سب کو خاموش کر جائے"],e:["The tongue that counts is the one that reaches the heart,","True eloquence is that which silences all."]},
+ "oscillation":{u:["کبھی ہاں، کبھی ناں — یہی تو زندگی ہے","اسی جھولے میں دل کی ساری بندگی ہے"],e:["Sometimes yes, sometimes no — this is life itself,","In this very swing lies all the heart's devotion."]},
+ "transmutation":{u:["جو غم تھا اسے میں نے ہنر بنا لیا","سینے کے انگار کو گہر بنا لیا"],e:["The grief I had, I turned into a craft,","The embers in my chest I turned to pearls."]},
+ "contemplation":{u:["ذرا ٹھہر، خود اپنے اندر جھانک لے","جواب باہر نہیں ہے — یہ بات جان لے"],e:["Pause a while, look within your own self,","The answer is not outside — know this much."]},
+ "constellation":{u:["بکھرے ہوئے یہ لوگ بھی اک داستان ہیں","ستارے دور دور ہیں، پھر بھی ایک جان ہیں"],e:["These scattered people too are one story,","The stars are far apart, yet still one soul."]},
+ "fracture":{u:["دراڑ آئی تو اندر روشنی اتری","جو ٹوٹنا تھا، وہی بات سب سے بہتری"],e:["When the crack came, light descended within,","The breaking itself was the very best thing."]},
+ "rapture":{u:["وہ وجد کا لمحہ جو عقل سے پرے ہے","ہر سانس میں اک رقص، ہر دھڑکن ہرے ہے"],e:["That moment of rapture, beyond all reason,","A dance in every breath, each heartbeat green."]},
+ "texture":{u:["ہر چیز میں تہہ در تہہ کوئی بات ہے","ظاہر کے نیچے ہی تو اصل کی رات ہے"],e:["In everything, layer on layer, lies something,","Beneath the surface is where the true night sits."]},
+ "rupture":{u:["پھٹاؤ یک دم نہیں، یہ برسوں کا غم ہے","جو خاموشی میں جلتا رہا، وہی علم ہے"],e:["The rupture isn't sudden — it's years of grief,","What burned in silence — that is the knowledge."]},
+ "stillness":{u:["سکوں وہ ہے جو شور سے ماورا رہے","ہر آندھی میں بھی دل ذرا ٹھہرا رہے"],e:["Peace is that which stays beyond the noise,","Even in every storm, the heart stays a little still."]},
+ "vastness":{u:["وسعت میں خود کو کھو کے ہی خود کو پایا","سمندر جتنا بڑا، اتنا ہی اپنا سایا"],e:["Only by losing myself in vastness did I find myself,","As large as the ocean, so large my own shadow."]},
+ "darkness":{u:["اندھیرا ہی نہ ہو تو روشنی کیا چیز ہے","ہر رات کے بطن میں اک سحر عزیز ہے"],e:["If there were no darkness, what would light be,","In the womb of every night, a dawn held dear."]},
+ "boldness":{u:["ڈرے بغیر تو ہر کوئی چل ہی لیتا ہے","جرأت تو وہ ہے جو ڈر کے ساتھ جیتا ہے"],e:["Without fear, anyone can walk on,","True boldness is the one that lives alongside fear."]},
+ "numinous":{u:["کوئی روحانی سی لہر جو چھو کے گزرتی ہے","سمجھ سے ماورا، پر دل میں اترتی ہے"],e:["Some spiritual wave that touches and passes by,","Beyond all sense, yet it sinks into the heart."]},
+ "luminous":{u:["جو اپنے اندر سے روشن ہے، وہ جلے گا","اندھیری رات میں بھی راستہ ملے گا"],e:["Whoever is luminous from within will burn on,","Even in the dark night, a path will be found."]},
+ "tenuous":{u:["وہ رشتہ جو ہے دھاگے سا نازک، مگر ہے","ہوا میں کانپتا، پر ٹوٹتا نہیں ہے"],e:["That bond, fragile as a thread, yet it is there,","Trembling in the wind, but it does not break."]},
+ "ominous":{u:["فضا میں کچھ ہے جو آنے کو ہے، خبر دیتا ہے","یہ خاموشی کا موسم بھی اثر دیتا ہے"],e:["Something in the air, about to arrive, gives warning,","Even this season of silence leaves its mark."]},
+ "tenacity":{u:["جفاکشی یہ ہے کہ گریں، پھر اٹھ کھڑے ہوں","ہزار بار ٹوٹیں، مگر پھر بھی لڑے ہوں"],e:["Tenacity is to fall, then rise and stand,","To break a thousand times, yet fight on still."]},
+ "audacity":{u:["دلیری یہ کہ اجازت کا نہ کرے انتظار","جو ٹھان لے، اسے کر گزرے بے قرار"],e:["Audacity is to not wait for any permission,","To resolve a thing and restlessly carry it out."]},
+ "ferocity":{u:["وہ شدت جو کسی بندھن کو نہیں مانتی","جو راستہ نہ ملے تو خود بنانا جانتی"],e:["That ferocity which accepts no binding,","If it finds no path, it knows to make its own."]},
+ "vivacity":{u:["جہاں وہ آئے، وہاں زندگی مچل اٹھے","ہر اک اداس چہرہ ذرا سا کھل اٹھے"],e:["Wherever they arrive, life leaps up alive,","Every sad face blossoms just a little more."]},
+ "ephemeral":{u:["جو پل ہے عارضی، وہی تو قیمتی ہے","ٹھہر نہ پائے گا — اسی میں خوبصورتی ہے"],e:["The moment that is fleeting is the precious one,","It cannot stay — and in that lies its beauty."]},
+ "rhetorical":{u:["یہ فنِ خطابت ہے، دلوں کو موڑ دیتا ہے","جو لفظ تول کے بولے، وہ سب کو جوڑ دیتا ہے"],e:["This is the art of rhetoric — it turns the hearts,","Who weighs their words binds everyone as one."]},
+ "satirical":{u:["طنز اک تیر ہے جو ہنسی میں چھپا ہوتا ہے","جو سچ نہ کہہ سکے، وہ مذاق میں کہا ہوتا ہے"],e:["Satire is an arrow hidden inside laughter,","What can't be said as truth is said as a joke."]},
+ "symmetrical":{u:["توازن میں ہی تو ہر شے کا حسن ہے","نہ کم نہ زیادہ — یہی تو اصل فن ہے"],e:["In balance alone lies the beauty of all things,","Neither less nor more — this is the true art."]}
+};
+
 // ===================== LYRIC STUDIO =====================
 function openLyricStudio(){
   if(!S.current) return;
@@ -1284,14 +1356,26 @@ function setStudioStyle(s){
   const lines=s==='ghazal'?null:(s==='rap'?e.rap:e.sng);
   const el=document.getElementById('studio-lines');
   if(s==='ghazal'){
-    el.innerHTML=`
-      <div class="studio-line visible studio-ur-line">${(e.gu||[]).join('<br>')}</div>
-      <div class="studio-line visible studio-en-line">${(e.ge||[]).join('<br>')}</div>`;
-    document.getElementById('studio-reveal-btn').style.display='none';
+    const g2=G2[e.w];
+    let html=`<div class="studio-line visible">`
+      +`<div class="studio-ur-line">${(e.gu||[]).join('<br>')}</div>`
+      +`<div class="studio-en-line">${(e.ge||[]).join('<br>')}</div></div>`;
+    if(g2){
+      html+=`<div class="studio-line">`
+        +`<div class="studio-ur-line">${g2.u.join('<br>')}</div>`
+        +`<div class="studio-en-line">${g2.e.join('<br>')}</div></div>`;
+    }
+    el.innerHTML=html;
+    S.studioLines=1;S.studioMax=g2?2:1;
+    const rb=document.getElementById('studio-reveal-btn');
+    rb.textContent='Show next couplet';
+    rb.style.display=g2?'block':'none';
   } else if(lines){
     el.innerHTML=lines.map((l,i)=>`<div class="studio-line${i<2?' visible':''}">${l}</div>`).join('');
     S.studioLines=2;S.studioMax=lines.length;
-    document.getElementById('studio-reveal-btn').style.display=S.studioLines<S.studioMax?'block':'none';
+    const rb=document.getElementById('studio-reveal-btn');
+    rb.textContent='Show next line';
+    rb.style.display=S.studioLines<S.studioMax?'block':'none';
   }
 }
 function revealNextLine(){
@@ -1307,10 +1391,17 @@ function saveVerse(){
   const e=S.current;
   const fav=ld('wg-favourites',[]);
   const idx=fav.findIndex(f=>f.w===e.w);
-  const lines=(S.lyricStyle==='rap'?e.rap:e.sng)||[];
-  const verse=lines.join('\n');
+  let verse;
+  if(S.lyricStyle==='ghazal'){
+    const g2=G2[e.w];
+    const ur=[...(e.gu||[]),...(g2?g2.u:[])].join('\n');
+    const en=[...(e.ge||[]),...(g2?g2.e:[])].join('\n');
+    verse=ur+'\n—\n'+en;
+  } else {
+    verse=((S.lyricStyle==='rap'?e.rap:e.sng)||[]).join('\n');
+  }
   if(idx>=0) fav[idx].verse=verse;
-  else fav.unshift({w:e.w,t:e.t,h:e.h||e.hen,rap:verse,lang:S.lang,savedAt:Date.now(),reviewCount:0});
+  else fav.unshift({w:e.w,t:e.t,h:e.h||e.hen,rap:verse,lang:S.lang,savedAt:Date.now(),reviewCount:0,lastSession:ld('wg-session-count',0)});
   sv('wg-favourites',fav);
   renderJournal();
   closeLyricStudio();
