@@ -145,6 +145,14 @@ textarea{resize:vertical;min-height:80px}
 .corpus-btn{padding:6px 14px;border-radius:8px;border:1px solid var(--border);font-size:13px;color:var(--text2)}
 .corpus-btn.primary{background:var(--accent);color:#fff;border-color:var(--accent)}
 #corpus-stats{font-size:13px;color:var(--text3);margin-top:6px}
+.ai-gen-row{display:flex;align-items:center;gap:10px;margin:10px 0;flex-wrap:wrap}
+.ai-gen-btn{padding:8px 14px;border-radius:8px;background:var(--accent);color:#fff;font-size:13px;font-weight:500;display:flex;align-items:center;gap:6px}
+.ai-gen-btn:disabled{opacity:.55}
+.ai-status{font-size:12px;color:var(--text3)}
+.ai-status.error{color:var(--rap)}
+.ai-status.done{color:var(--ghazal)}
+.ai-status.loading{color:var(--accent)}
+#api-key-input{font-family:monospace;font-size:13px}
 
 /* LYRIC STUDIO */
 #lyric-studio{
@@ -287,6 +295,10 @@ textarea{resize:vertical;min-height:80px}
     <div class="topic-select-row">
       <select id="topic-select" onchange="generateTopicWords()"></select>
     </div>
+    <div class="ai-gen-row">
+      <button id="ai-topic-btn" class="ai-gen-btn" onclick="aiGenerateTopic()"><i class="ti ti-wand"></i> Generate fresh words with AI</button>
+      <span id="ai-topic-status" class="ai-status"></span>
+    </div>
     <div id="topic-words-grid" class="topic-words-grid">
       <span class="empty-state">Select a topic to generate words</span>
     </div>
@@ -336,6 +348,17 @@ textarea{resize:vertical;min-height:80px}
         <button class="corpus-btn" onclick="clearCorpus()">Clear</button>
       </div>
       <div id="corpus-stats"></div>
+    </div>
+    <div class="prefs-section">
+      <div class="prefs-label">AI word generation (unlimited)</div>
+      <input id="api-key-input" type="password" placeholder="Anthropic API key (sk-ant-…)" autocomplete="off" spellcheck="false">
+      <div style="font-size:12px;color:var(--text3);margin-top:6px">Stored only on this device, never uploaded to the public site. Get a key at console.anthropic.com → API keys. Each generation costs a few cents.</div>
+      <select id="api-model-select" style="margin-top:8px"></select>
+      <div class="corpus-actions">
+        <button class="corpus-btn primary" onclick="saveApiSettings()">Save key &amp; model</button>
+        <button class="corpus-btn" onclick="clearAiWords()">Clear AI words</button>
+      </div>
+      <div id="ai-stats" style="font-size:13px;color:var(--text3);margin-top:6px"></div>
     </div>
     <div class="prefs-section">
       <div class="prefs-label">Hidden words</div>
@@ -806,7 +829,13 @@ function getPool(){
     return true;
   });
   const corpus=ld('wg-corpus-words',[]);
-  return [...base,...corpus.filter(w=>!hidden.has(w.w))];
+  // AI-generated words use the English schema; include them in English mode
+  const ai=S.lang==='en'?ld('wg-ai-words',[]).filter(w=>{
+    if(hidden.has(w.w)) return false;
+    if(S.mode==='normal'&&w.hd) return false;
+    return true;
+  }):[];
+  return [...base,...corpus.filter(w=>!hidden.has(w.w)),...ai];
 }
 
 // Cross-session recency: words shown recently (persisted) are avoided until the pool cycles
@@ -1082,7 +1111,7 @@ function hideCurrentWord(){
 let mtWords=[],mtIdx=0,mtCorrect=0,mtMissed=[];
 function startMemoryTest(){
   const seen=[...new Set(S.seenWords)];
-  const pool=WORDS[S.lang];
+  const pool=getPool();
   mtWords=seen.slice(-Math.min(seen.length,10))
     .map(w=>pool.find(e=>e.w===w)).filter(Boolean);
   if(mtWords.length<3){endMemoryTest();return;}
@@ -1098,7 +1127,7 @@ function renderMTQuestion(){
   document.getElementById('mt-fill').style.width=`${(mtIdx/total)*100}%`;
   document.getElementById('mt-hint').textContent=S.lang==='en'?e.h:e.hen||e.h;
   // Build options
-  const pool=WORDS[S.lang];
+  const pool=getPool();
   const wrong=pool.filter(w=>w.w!==e.w).sort(()=>Math.random()-.5).slice(0,3);
   const opts=[e,...wrong].sort(()=>Math.random()-.5);
   const c=document.getElementById('mt-options');
@@ -1127,7 +1156,7 @@ function showScore(){
 function reviewMissed(){
   document.getElementById('score-screen').classList.remove('active');
   if(mtMissed.length){
-    const pool=WORDS[S.lang];
+    const pool=getPool();
     const entry=pool.find(w=>w.w===mtMissed[0]);
     if(entry){S.current=entry;renderWord(entry);}
   }
@@ -1356,7 +1385,7 @@ function setStudioStyle(s){
   const lines=s==='ghazal'?null:(s==='rap'?e.rap:e.sng);
   const el=document.getElementById('studio-lines');
   if(s==='ghazal'){
-    const g2=G2[e.w];
+    const g2=G2[e.w]||e.g2;
     let html=`<div class="studio-line visible">`
       +`<div class="studio-ur-line">${(e.gu||[]).join('<br>')}</div>`
       +`<div class="studio-en-line">${(e.ge||[]).join('<br>')}</div></div>`;
@@ -1393,7 +1422,7 @@ function saveVerse(){
   const idx=fav.findIndex(f=>f.w===e.w);
   let verse;
   if(S.lyricStyle==='ghazal'){
-    const g2=G2[e.w];
+    const g2=G2[e.w]||e.g2;
     const ur=[...(e.gu||[]),...(g2?g2.u:[])].join('\n');
     const en=[...(e.ge||[]),...(g2?g2.e:[])].join('\n');
     verse=ur+'\n—\n'+en;
@@ -1407,6 +1436,143 @@ function saveVerse(){
   closeLyricStudio();
 }
 
+// ===================== AI GENERATION (live, optional) =====================
+const WG_MODELS={'claude-opus-4-8':'Opus 4.8 — best quality','claude-sonnet-4-6':'Sonnet 4.6 — faster','claude-haiku-4-5':'Haiku 4.5 — cheapest'};
+function aiKey(){ return ld('wg-api-key',''); }
+function aiModel(){ return ld('wg-api-model','claude-opus-4-8'); }
+
+const AI_SCHEMA={type:"object",additionalProperties:false,required:["words"],properties:{
+  words:{type:"array",items:{type:"object",additionalProperties:false,
+    required:["w","u","ut","t","s","r","h","rap","sng","gu","ge","g2u","g2e"],
+    properties:{
+      w:{type:"string"},u:{type:"string"},ut:{type:"string"},
+      t:{type:"string",enum:["noun","adj","verb"]},
+      s:{type:"integer"},r:{type:"string"},h:{type:"string"},
+      rap:{type:"array",items:{type:"string"}},
+      sng:{type:"array",items:{type:"string"}},
+      gu:{type:"array",items:{type:"string"}},
+      ge:{type:"array",items:{type:"string"}},
+      g2u:{type:"array",items:{type:"string"}},
+      g2e:{type:"array",items:{type:"string"}}
+    }}}
+}};
+
+function aiPrompt(topic,count,hard){
+  const level=hard?'obscure, literary and advanced (rare English words; Ghalib-era classical Urdu)':'evocative but accessible, everyday-poetic';
+  const topicLine=topic?`Every word must relate to the theme: "${topic}".`:'Choose unexpected, horizon-expanding words from varied domains.';
+  return `You are creating entries for a bilingual (English + Urdu) word generator that trains free association, public speaking and poetry (rap, song, ghazal).
+Generate ${count} ${level} ENGLISH words. ${topicLine}
+For EACH word return an object with exactly these fields:
+- w: the English word
+- u: its Urdu translation in Urdu script
+- ut: roman transliteration of the Urdu
+- t: part of speech (noun, adj, or verb)
+- s: integer syllable count of the English word
+- r: a short rhyme-key = the word's ending sound (e.g. al, ence, ation, ure, ness, ous, ity, osis)
+- h: a vivid one-line English definition that sparks thought
+- rap: a 4-line rap verse using the word, with internal and end rhyme and rhythmic flow
+- sng: a 4-line song lyric using the word, melodic and emotional
+- gu: a 2-line Urdu ghazal couplet (sher) in Urdu script using the concept, the two lines rhyming (qafia)
+- ge: the English translation of gu (2 lines)
+- g2u: a SECOND 2-line Urdu couplet on the same theme (Urdu script)
+- g2e: the English translation of g2u (2 lines)
+Make the poetry genuinely good and the Urdu grammatically correct. Vary the rhyme-keys across the set so words form rhyme families. Return only the structured JSON.`;
+}
+
+async function generateWords(topic,count,hard,onStatus){
+  const key=aiKey();
+  if(!key){ onStatus('error','Add your API key in Prefs first.'); return null; }
+  onStatus('loading','Generating with Claude…');
+  try{
+    const res=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{
+        'content-type':'application/json',
+        'x-api-key':key,
+        'anthropic-version':'2023-06-01',
+        'anthropic-dangerous-direct-browser-access':'true'
+      },
+      body:JSON.stringify({
+        model:aiModel(),
+        max_tokens:8000,
+        output_config:{format:{type:'json_schema',schema:AI_SCHEMA}},
+        messages:[{role:'user',content:aiPrompt(topic,count,hard)}]
+      })
+    });
+    if(!res.ok){
+      let msg='Generation failed ('+res.status+').';
+      if(res.status===401) msg='Invalid API key — check it in Prefs.';
+      else if(res.status===429) msg='Rate limited — wait a moment and retry.';
+      else if(res.status===529||res.status===500) msg='Claude is busy — try again shortly.';
+      onStatus('error',msg); return null;
+    }
+    const data=await res.json();
+    if(data.stop_reason==='refusal'){ onStatus('error','Request was declined — try a different topic.'); return null; }
+    const text=(data.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('');
+    let parsed; try{ parsed=JSON.parse(text); }catch{ onStatus('error','Could not read the response — try again.'); return null; }
+    const words=(parsed.words||[]).map(o=>({
+      w:o.w,u:o.u,ut:o.ut,t:o.t,s:o.s|0,r:(o.r||'').toLowerCase().replace(/[^a-z]/g,''),h:o.h,
+      rap:o.rap,sng:o.sng,gu:o.gu,ge:o.ge,g2:{u:o.g2u||[],e:o.g2e||[]},
+      hd:!!hard,lang:'en',source:'ai'
+    })).filter(w=>w.w&&w.rap&&w.rap.length&&w.gu&&w.gu.length);
+    if(!words.length){ onStatus('error','No words returned — try again.'); return null; }
+    mergeAiWords(words);
+    onStatus('done',`Added ${words.length} new words to your bank.`);
+    return words;
+  }catch(err){
+    onStatus('error','Network/CORS error — '+(err.message||'request blocked')); return null;
+  }
+}
+
+function mergeAiWords(words){
+  const existing=ld('wg-ai-words',[]);
+  const have=new Set(existing.map(w=>(w.w||'').toLowerCase()));
+  for(const w of words){ const k=(w.w||'').toLowerCase(); if(k&&!have.has(k)){ existing.push(w); have.add(k); } }
+  sv('wg-ai-words',existing);
+}
+
+async function aiGenerateTopic(){
+  const sel=document.getElementById('topic-select');
+  const topic=sel?sel.value:'';
+  const statusEl=document.getElementById('ai-topic-status');
+  const btn=document.getElementById('ai-topic-btn');
+  btn.disabled=true;
+  const words=await generateWords(topic,8,S.mode==='hard',(state,msg)=>{
+    statusEl.textContent=msg; statusEl.className='ai-status '+state;
+  });
+  btn.disabled=false;
+  if(words){
+    const grid=document.getElementById('topic-words-grid');
+    grid.innerHTML=words.map(w=>`<span class="topic-chip" onclick="showAiWord('${encodeURIComponent(w.w)}')">${w.w}</span>`).join('');
+    updateAiCounts();
+  }
+}
+function showAiWord(enc){
+  const w=decodeURIComponent(enc);
+  const entry=getPool().find(e=>e.w===w);
+  if(entry){ switchTab('home'); S.current=entry; renderWord(entry); }
+}
+
+// AI settings UI
+function initApiUI(){
+  const sel=document.getElementById('api-model-select');
+  if(sel){ sel.innerHTML=Object.entries(WG_MODELS).map(([id,label])=>`<option value="${id}">${label}</option>`).join(''); sel.value=aiModel(); }
+  const k=document.getElementById('api-key-input'); if(k) k.value=aiKey();
+  updateAiCounts();
+}
+function saveApiSettings(){
+  const k=(document.getElementById('api-key-input').value||'').trim();
+  const m=document.getElementById('api-model-select').value;
+  sv('wg-api-key',k); sv('wg-api-model',m);
+  const el=document.getElementById('ai-stats'); if(el) el.textContent='Saved ✓';
+  setTimeout(updateAiCounts,1200);
+}
+function clearAiWords(){ sv('wg-ai-words',[]); updateAiCounts(); }
+function updateAiCounts(){
+  const n=ld('wg-ai-words',[]).length;
+  const el=document.getElementById('ai-stats'); if(el) el.textContent=n?`${n} AI-generated words saved on this device.`:'No AI words yet — add a key and generate from the Topics tab.';
+}
+
 // ===================== TAB SWITCHING =====================
 function switchTab(tab){
   S.tab=tab;
@@ -1416,7 +1582,7 @@ function switchTab(tab){
     b.classList.toggle('active',tabs[i]===tab);
   });
   if(tab==='journal'){renderJournal();renderScores();}
-  if(tab==='prefs'){renderHiddenWords();}
+  if(tab==='prefs'){renderHiddenWords();initApiUI();}
 }
 
 // ===================== TOUCH SWIPE =====================
@@ -1438,6 +1604,7 @@ function init(){
   initPrefs();
   buildTopicSelect();
   renderHiddenWords();
+  initApiUI();
   nextWord();
 }
 init();
